@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5b6f62">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Nutrition">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Liraz Nutrition Planner</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb;
+  --accent:#5b6f62; --accent2:#eef3ef; --good:#2f7d50; --warn:#a16207;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.wrap{max-width:1100px;margin:auto;padding:18px}
+h1{font-size:1.45rem;margin:0}.sub{color:var(--muted);font-size:.92rem;margin-top:4px}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+button,.btn{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:650}
+nav button{background:#f1f3f5;color:#374151}
+nav button.active{background:var(--accent);color:#fff}
+main{max-width:1100px;margin:auto;padding:18px}
+section{display:none}section.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.kpi{background:var(--accent2);border-radius:14px;padding:14px}
+.kpi b{font-size:1.15rem}
+small,.muted{color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:.93rem}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#fafafa}
+.tag{display:inline-block;padding:3px 8px;border-radius:999px;background:var(--accent2);font-size:.78rem;margin:2px 4px 2px 0}
+.recipe h3{margin:.2rem 0}.recipe details{margin-top:8px}
+.recipe ul{margin-top:6px}
+input,select,textarea{width:100%;padding:9px;border:1px solid #d1d5db;border-radius:9px;background:#fff}
+label{font-size:.85rem;color:#4b5563;font-weight:600}
+.formgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.formgrid .wide{grid-column:span 2}
+@media(max-width:750px){.formgrid{grid-template-columns:1fr 1fr}.formgrid .wide{grid-column:span 2} table{font-size:.85rem}.wrap,main{padding:12px}}
+.progress{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:5px}.bar{height:100%;background:var(--accent)}
+.good{color:var(--good)}.warn{color:var(--warn)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.grow{flex:1}
+.danger{background:#fee2e2;color:#991b1b}.secondary{background:#eef2f7;color:#374151}.primary{background:var(--accent);color:#fff}
+.day-card h3{margin-top:0}.meal{padding:8px 0;border-bottom:1px dashed var(--line)}.meal:last-child{border-bottom:0}
+.checklist label{display:block;font-weight:400;margin:7px 0}.checklist input{width:auto;margin-right:8px}
+.notice{padding:12px;border-radius:12px;background:#fff8e6;border:1px solid #f2d48a;color:#6b4f00}
+footer{max-width:1100px;margin:20px auto 50px;padding:0 18px;color:var(--muted);font-size:.82rem}
+
+/* iPhone / PWA enhancements */
+body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+header{padding-top:env(safe-area-inset-top)}
+.quick-actions{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+.quick-actions button{min-height:58px;font-size:1rem}
+.mobile-bottom-nav{display:none}
+.mobile-only{display:none}
+.desktop-nav{display:flex}
+#todayTargets .kpi{min-height:88px}
+.big-progress{margin-top:10px}
+.big-progress .progress{height:14px}
+@media(max-width:750px){
+  header .wrap{padding-bottom:8px}
+  header nav{display:none!important}
+  .mobile-only{display:block}
+  main{padding:12px 10px 92px}
+  .card{border-radius:18px;padding:14px}
+  h2{font-size:1.25rem}
+  .grid{grid-template-columns:1fr 1fr}
+  #todayTargets{grid-template-columns:repeat(2,1fr)}
+  #todayTargets .kpi:first-child{grid-column:span 2}
+  button,.btn{min-height:44px}
+  input,select,textarea{font-size:16px;min-height:44px}
+  .mobile-bottom-nav{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    position:fixed;
+    left:0;right:0;bottom:0;
+    z-index:50;
+    background:rgba(255,255,255,.97);
+    border-top:1px solid var(--line);
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+    backdrop-filter:blur(16px);
+  }
+  .mobile-bottom-nav button{
+    background:transparent;
+    color:#4b5563;
+    padding:5px 2px;
+    border-radius:12px;
+    min-height:54px;
+    font-size:.72rem;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    align-items:center;
+    justify-content:center;
+  }
+  .mobile-bottom-nav button .ico{font-size:1.25rem;line-height:1}
+  .mobile-bottom-nav button.active{background:var(--accent2);color:var(--accent)}
+  .formgrid{grid-template-columns:1fr 1fr}
+  .formgrid .wide{grid-column:span 2}
+  .recipe details{font-size:.95rem}
+  .row.mobile-stack{align-items:stretch}
+  .row.mobile-stack>*{width:100%!important;max-width:none!important}
+}
+
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Liraz Nutrition Planner <span class="tag">iPhone</span></h1>
+    <div class="sub">Body recomposition • strength first • HIIT-friendly fueling</div>
+    <nav>
+      <button data-tab="today" class="active">Today</button>
+      <button data-tab="menu">7-Day Menu</button>
+      <button data-tab="recipes">Recipes</button>
+      <button data-tab="shopping">Shopping</button>
+      <button data-tab="prep">Meal Prep</button>
+      <button data-tab="tracker">Tracker</button>
+      <button data-tab="custom">Custom Meals</button>
+      <button data-tab="photos">Photo Meals</button>
+      <button data-tab="settings">Settings</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section id="today" class="active">
+  <div class="card">
+    <div class="row"><div class="grow"><h2 style="margin:0">Today</h2><div id="todayDate" class="muted"></div></div>
+      <select id="todayType" style="max-width:260px"></select>
+    </div>
+  </div>
+  <div id="todayTargets" class="grid"></div>
+
+  <div class="card mobile-only">
+    <div class="quick-actions">
+      <button class="primary" onclick="goTab('tracker')">＋ Log Meal</button>
+      <button class="secondary" onclick="goTab('photos')">📷 Photo Meal</button>
+      <button class="secondary" onclick="goTab('menu')">🍽 Today’s Menu</button>
+      <button class="secondary" onclick="goTab('shopping')">🛒 Shopping</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Remaining today</h3>
+    <div id="remainingToday" class="grid"></div>
+  </div>
+
+  <div class="card"><h3>Fixed breakfast</h3>
+    <p><b>Greek yogurt protein bowl</b> — Kirkland Greek yogurt (2/3 cup), 1 scoop Kirkland whey, 7 almonds, 5 pecan halves, 5 walnut halves, ~¾ cup blueberries, 2 Tbsp pomegranate seeds when in season.</p>
+    <p class="muted">Approx. 480 kcal • 49 g protein • 38 g carbs • 18 g fat • 7 g fiber</p>
+  </div>
+  <div class="card"><h3>Today's menu</h3><div id="todayMenu"></div></div>
+</section>
+
+<section id="menu">
+  <div class="card"><h2>7-Day Menu</h2><p class="muted">Move a whole day if your weekly class schedule changes. The day type matters more than the weekday name.</p></div>
+  <div id="weekMenu" class="grid"></div>
+</section>
+
+<section id="recipes">
+  <div class="card"><div class="row"><h2 class="grow">Recipe Book</h2><input id="recipeSearch" placeholder="Search recipes..." style="max-width:320px"></div></div>
+  <div id="recipeList"></div>
+</section>
+
+<section id="shopping">
+  <div class="card"><h2>Shopping List</h2><p class="muted">Check items off as you shop. Checks are saved locally.</p></div>
+  <div id="shoppingList" class="grid checklist"></div>
+</section>
+
+<section id="prep">
+  <div class="card"><h2>Weekend Meal Prep</h2><p class="muted">About 75–90 minutes. Prep components, not identical meals.</p></div>
+  <div id="prepList" class="checklist"></div>
+</section>
+
+<section id="tracker">
+  <div class="card">
+    <h2>Daily Meal Tracker</h2>
+    <div class="formgrid">
+      <div><label>Date</label><input type="date" id="logDate"></div>
+      <div class="wide"><label>Meal / food</label><input id="logMeal" placeholder="e.g., Chicken shawarma rice bowl"></div>
+      <div><label>Calories</label><input type="number" id="logCal" min="0"></div>
+      <div><label>Protein (g)</label><input type="number" id="logPro" min="0" step="0.1"></div>
+      <div><label>Carbs (g)</label><input type="number" id="logCarb" min="0" step="0.1"></div>
+      <div><label>Fat (g)</label><input type="number" id="logFat" min="0" step="0.1"></div>
+      <div><label>Fiber (g)</label><input type="number" id="logFiber" min="0" step="0.1"></div>
+      <div class="wide"><label>Notes</label><input id="logNotes" placeholder="optional"></div>
+    </div>
+    <div style="margin-top:12px" class="row">
+      <button class="primary" onclick="addLog()">Add entry</button>
+      <button class="secondary" onclick="addBreakfast()">Add usual breakfast</button>
+    </div>
+  </div>
+  <div class="card"><div class="row"><h3 class="grow">Daily totals</h3><input type="date" id="viewDate" style="max-width:180px"></div><div id="dailyTotals"></div></div>
+  <div class="card"><h3>Entries</h3><div id="logTable"></div></div>
+</section>
+
+
+<section id="custom">
+  <div class="card">
+    <h2>Custom Meal Builder</h2>
+    <p class="muted">Build your own meal from ingredients. For best accuracy, enter the amount in grams. The app calculates totals from the built-in food database.</p>
+    <div class="notice">For foods not in the database, choose <b>Custom ingredient</b> and enter its nutrition per 100 g from the package label.</div>
+  </div>
+
+  <div class="card">
+    <div class="formgrid">
+      <div class="wide"><label>Meal name</label><input id="cmName" placeholder="e.g., Liraz chicken avocado wrap"></div>
+      <div class="wide"><label>Notes</label><input id="cmNotes" placeholder="optional"></div>
+    </div>
+    <h3 style="margin-top:18px">Ingredients</h3>
+    <div id="ingredientRows"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="secondary" onclick="addIngredientRow()">+ Add ingredient</button>
+      <button class="primary" onclick="saveCustomMeal()">Save custom meal</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Current meal totals</h3>
+    <div id="customTotals" class="grid"></div>
+  </div>
+
+  <div class="card">
+    <h3>Saved custom meals</h3>
+    <div id="savedMeals"></div>
+  </div>
+
+  <div class="card">
+    <h3>Photo-based meal estimate</h3>
+    <p>You can save a description here, but the app itself cannot analyze a photo offline. For a plate photo, upload it to ChatGPT and tell me the ingredients/portion sizes you know. I can estimate the macros, and then you can save that result here as a custom meal.</p>
+  </div>
+</section>
+
+
+<section id="photos">
+  <div class="card">
+    <h2>Photo Meal Estimates</h2>
+    <p class="muted">Save a plate photo, what you know about the ingredients/portions, and the macro estimate. The app does not analyze the image itself; use ChatGPT for the estimate, then store the result here.</p>
+    <div class="notice"><b>Suggested workflow:</b> take a photo → upload it to ChatGPT → list ingredients/amounts you know → get estimated macros → enter them below → save the meal.</div>
+  </div>
+
+  <div class="card">
+    <div class="formgrid">
+      <div class="wide"><label>Meal name</label><input id="photoMealName" placeholder="e.g., Chicken rice bowl from dinner"></div>
+      <div class="wide"><label>Photo</label><input type="file" id="photoMealFile" accept="image/*"></div>
+      <div class="wide"><label>Ingredients / portion notes</label><textarea id="photoMealNotes" rows="4" placeholder="e.g., chicken breast ~5 oz, rice ~1 cup, avocado ~¼, roasted vegetables, 1 tsp olive oil"></textarea></div>
+      <div><label>Calories</label><input type="number" id="photoCal" min="0"></div>
+      <div><label>Protein (g)</label><input type="number" id="photoPro" min="0" step="0.1"></div>
+      <div><label>Carbs (g)</label><input type="number" id="photoCarb" min="0" step="0.1"></div>
+      <div><label>Fat (g)</label><input type="number" id="photoFat" min="0" step="0.1"></div>
+      <div><label>Fiber (g)</label><input type="number" id="photoFiber" min="0" step="0.1"></div>
+    </div>
+    <div id="photoPreviewWrap" style="display:none;margin-top:14px">
+      <img id="photoPreview" alt="Meal preview" style="max-width:320px;width:100%;border-radius:14px;border:1px solid var(--line)">
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" onclick="savePhotoMeal()">Save photo meal</button>
+      <button class="secondary" onclick="clearPhotoForm()">Clear</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Saved photo meals</h3>
+    <div id="photoMealsList"></div>
+  </div>
+</section>
+
+<section id="settings">
+  <div class="card"><h2>Targets & Schedule</h2><p class="muted">Defaults reflect the plan we built. You can edit the weekday type assignments here.</p>
+    <div id="scheduleEditor"></div>
+  </div>
+  <div class="card">
+    <h3>Backup</h3>
+    <div class="row">
+      <button class="secondary" onclick="exportData()">Export tracking data</button>
+      <label class="btn secondary">Import data<input type="file" id="importFile" accept=".json" style="display:none"></label>
+      <button class="danger" onclick="clearLogs()">Clear meal log</button>
+    </div>
+    <p class="muted">Data stays in this browser/device unless you export it.</p>
+  </div>
+</section>
+</main>
+
+
+<div class="mobile-bottom-nav" id="mobileBottomNav">
+  <button data-mobile-tab="today" class="active"><span class="ico">⌂</span><span>Today</span></button>
+  <button data-mobile-tab="tracker"><span class="ico">＋</span><span>Log</span></button>
+  <button data-mobile-tab="photos"><span class="ico">📷</span><span>Photo</span></button>
+  <button data-mobile-tab="shopping"><span class="ico">🛒</span><span>Shop</span></button>
+  <button data-mobile-tab="recipes"><span class="ico">☰</span><span>Recipes</span></button>
+</div>
+
+<footer>
+This planner is for practical nutrition tracking and meal organization. Macro values are approximate and will vary by brand, portion size, and preparation.
+</footer>
+
+<script>
+const targets={
+ "Strength":{cal:2150,protein:135,carbs:250,fat:65,fiber:32},
+ "HIIT 1 hr":{cal:2100,protein:135,carbs:235,fat:65,fiber:32},
+ "HIIT 2 hr":{cal:2250,protein:140,carbs:290,fat:65,fiber:32},
+ "Rest / easy":{cal:1900,protein:135,carbs:185,fat:68,fiber:32}
+};
+
+const defaultSchedule={
+ "Monday":"Strength","Tuesday":"HIIT 1 hr","Wednesday":"Strength",
+ "Thursday":"Rest / easy","Friday":"HIIT 2 hr","Saturday":"Strength","Sunday":"HIIT 1 hr"
+};
+
+const dayMenus={
+ "Monday":{
+  timing:"Strength 5:00–7:00/7:30 pm",
+  meals:[
+   ["Breakfast","Usual Greek yogurt protein bowl"],
+   ["Lunch","Chicken-quinoa avocado bowl"],
+   ["Pre-workout ~3:30–4:00","Banana + 2 rice cakes + 1 tsp honey"],
+   ["Dinner after training","Chicken shawarma rice bowl"],
+   ["Optional","Fruit or a small sweet if needed to reach calories"]
+  ]
+ },
+ "Tuesday":{
+  timing:"HIIT 7:00–8:00 pm",
+  meals:[
+   ["Breakfast","Usual Greek yogurt protein bowl"],
+   ["Lunch","Mediterranean tuna pita + fruit"],
+   ["Pre-workout ~4:30–5:00","Banana + 2 rice cakes"],
+   ["Dinner after training","Tofu vegetable stir-fry with rice"]
+  ]
+ },
+ "Wednesday":{
+  timing:"Strength 5:00–7:00/7:30 pm",
+  meals:[
+   ["Breakfast","Usual Greek yogurt protein bowl"],
+   ["Lunch","Egg, lentil & potato bowl"],
+   ["Pre-workout ~3:30–4:00","Banana + small serving pretzels"],
+   ["Dinner after training","Chicken pasta primavera"]
+  ]
+ },
+ "Thursday":{
+  timing:"Rest / easy day",
+  meals:[
+   ["Breakfast","Usual Greek yogurt protein bowl"],
+   ["Lunch","Tuna-chickpea avocado salad"],
+   ["Snack","Cottage cheese + apple"],
+   ["Dinner","Tofu curry bowl"]
+  ]
+ },
+ "Friday":{
+  timing:"HIIT / endurance 6:00–8:00 pm",
+  meals:[
+   ["Breakfast","Usual Greek yogurt protein bowl"],
+   ["Lunch","Chicken-rice-chickpea bowl"],
+   ["Pre-workout ~3:00","Banana + 2 slices toast + 1 Tbsp jam/honey"],
+   ["Dinner after training","Chicken pasta recovery bowl (3 oz dry pasta)"]
+  ]
+ },
+ "Saturday":{
+  timing:"Strength 11:00 am–1:00/1:30 pm",
+  meals:[
+   ["Breakfast ~9:00","Usual Greek yogurt protein bowl"],
+   ["Post-workout lunch","Egg & potato plate"],
+   ["Snack","Cottage cheese + fruit"],
+   ["Dinner","Beef fajita bowl"]
+  ]
+ },
+ "Sunday":{
+  timing:"HIIT 8:30–9:30 am",
+  meals:[
+   ["Before class","Water only, if you feel good training fasted"],
+   ["Breakfast after class","Usual Greek yogurt protein bowl"],
+   ["Lunch","Chicken-lentil Mediterranean salad"],
+   ["Snack","Fruit + cottage cheese"],
+   ["Dinner","Lemon-garlic chicken & potatoes"]
+  ]
+ }
+};
+
+const recipes=[
+{
+ name:"Chicken-Quinoa Avocado Bowl",
+ tags:["lunch","strength","meal prep"],
+ macros:"≈590 kcal • 44 g protein • 60 g carbs • 17 g fat • 12–14 g fiber",
+ ingredients:["4 oz cooked chicken breast","¾ cup cooked quinoa","¼ cup chickpeas","¼ avocado","1–2 cups greens","Cucumber, tomato, bell pepper","1 tsp olive oil","Lemon, salt, pepper, garlic"],
+ steps:"Combine all ingredients in a bowl. Add avocado just before eating. Everything else can be prepped ahead."
+},
+{
+ name:"Chicken Shawarma Rice Bowl",
+ tags:["dinner","strength","meal prep"],
+ macros:"≈675–725 kcal • 38–42 g protein • 85–90 g carbs • ~20 g fat",
+ ingredients:["4–5 oz cooked shawarma chicken","1–1¼ cups cooked rice","Cucumber-tomato salad","Greens","2 Tbsp hummus","2 tsp tahini sauce"],
+ steps:"Reheat chicken and rice. Add fresh vegetables, hummus and tahini. For shawarma chicken season with cumin, paprika, coriander, turmeric, garlic, lemon, salt and pepper."
+},
+{
+ name:"Mediterranean Tuna Pita",
+ tags:["lunch","quick"],
+ macros:"≈500–525 kcal • ~38 g protein • ~60 g carbs • 12–14 g fat • ~9 g fiber",
+ ingredients:["1 can tuna in water, drained","1 whole-wheat pita","2 Tbsp Greek yogurt","1 tsp Dijon","Lemon","Celery, cucumber, tomato, lettuce","2 Tbsp hummus","1 piece fruit"],
+ steps:"Mix tuna with yogurt, Dijon, lemon and celery. Stuff pita with tuna mixture, vegetables and hummus. Eat fruit on the side."
+},
+{
+ name:"Tofu Vegetable Stir-Fry",
+ tags:["dinner","HIIT","vegetarian"],
+ macros:"≈650 kcal • 32–35 g protein • ~80 g carbs • ~22 g fat • 10+ g fiber",
+ ingredients:["7 oz extra-firm tofu","1 cup cooked rice","2–3 cups mixed vegetables","2 tsp sesame or olive oil","Soy sauce","Garlic, ginger","1 tsp honey","Sriracha optional"],
+ steps:"Brown cubed tofu, add vegetables, then sauce ingredients. Serve over rice."
+},
+{
+ name:"Egg, Lentil & Potato Bowl",
+ tags:["lunch","quick"],
+ macros:"≈550–575 kcal • ~38 g protein • ~60 g carbs • ~18 g fat • ~12 g fiber",
+ ingredients:["1 whole egg","¾ cup egg whites","½ cup cooked lentils","5–6 oz roasted potatoes","Spinach, mushrooms, peppers","¼ avocado","Salsa"],
+ steps:"Scramble egg and egg whites with vegetables. Add warmed lentils and potatoes; top with avocado and salsa."
+},
+{
+ name:"Chicken Pasta Primavera",
+ tags:["dinner","strength","HIIT"],
+ macros:"≈650–700 kcal • ~40 g protein • 80–90 g carbs • ~15–18 g fat",
+ ingredients:["4 oz cooked chicken","2½ oz dry pasta (3 oz on 2-hour HIIT day)","½–¾ cup tomato sauce","Zucchini, mushrooms, spinach, broccoli","1 tsp olive oil","Garlic","Parmesan optional"],
+ steps:"Cook pasta. Warm chicken and vegetables in tomato sauce, combine, and finish with olive oil or a small amount of Parmesan."
+},
+{
+ name:"Tuna-Chickpea Avocado Salad",
+ tags:["lunch","rest day","quick"],
+ macros:"≈480–520 kcal • 38–40 g protein • 40–45 g carbs • ~18 g fat • ~13 g fiber",
+ ingredients:["1 can tuna","½ cup chickpeas","¼ avocado","Large serving greens","Tomato, cucumber, peppers, red onion","1 tsp olive oil","Lemon","Optional: 1 slice whole-grain bread"],
+ steps:"Combine everything and dress with lemon and olive oil."
+},
+{
+ name:"Tofu Curry Bowl",
+ tags:["dinner","rest day","vegetarian"],
+ macros:"≈575–600 kcal • ~30 g protein • ~60 g carbs • ~23 g fat • ~10 g fiber",
+ ingredients:["7 oz extra-firm tofu","½ cup cooked rice","Cauliflower, zucchini, peppers, spinach, onion","½ cup light coconut milk","Curry powder or paste","Garlic and ginger"],
+ steps:"Cook tofu and vegetables, add curry and coconut milk, simmer briefly, and serve over rice."
+},
+{
+ name:"Chicken-Rice-Chickpea Bowl",
+ tags:["lunch","2-hour HIIT"],
+ macros:"≈650–675 kcal • ~40 g protein • ~90 g carbs • 15–18 g fat • ~12 g fiber",
+ ingredients:["4 oz chicken","1 cup cooked rice","½ cup chickpeas","Cucumber, tomato, peppers, greens","¼ avocado","1 tsp olive oil","Lemon"],
+ steps:"Assemble and eat early enough to leave your preferred 2–3 hour pre-HIIT digestion window."
+},
+{
+ name:"Beef Fajita Bowl",
+ tags:["dinner","beef","Saturday"],
+ macros:"≈625–675 kcal • ~40 g protein • ~70 g carbs • ~20 g fat",
+ ingredients:["4–5 oz lean sirloin, flank steak, or 90–93% lean ground beef","1 cup cooked rice","Peppers and onions","Lettuce, tomato, salsa","¼ avocado","Lime","Cumin, chili powder, garlic"],
+ steps:"Cook beef with spices. Add peppers and onions. Serve over rice with vegetables, salsa, avocado and lime."
+},
+{
+ name:"Chicken-Lentil Mediterranean Salad",
+ tags:["lunch","Sunday"],
+ macros:"≈550–575 kcal • ~35 g protein • ~60 g carbs • ~17 g fat • ~14 g fiber",
+ ingredients:["3 oz cooked chicken","½ cup lentils","Greens","Cucumber, tomato, peppers, red onion","¼ avocado","1 tsp olive oil","Lemon","1 whole-wheat pita"],
+ steps:"Combine salad ingredients and serve with pita."
+},
+{
+ name:"Lemon-Garlic Chicken & Potatoes",
+ tags:["dinner","meal prep"],
+ macros:"≈600–650 kcal • 35–40 g protein • 65–70 g carbs • 18–20 g fat",
+ ingredients:["4 oz chicken","8 oz potatoes","2–3 cups broccoli, zucchini, peppers or green beans","2 tsp olive oil","Lemon","Garlic","Paprika","Salt and pepper"],
+ steps:"Roast at 425°F until chicken is cooked through and vegetables/potatoes are browned."
+},
+{
+ name:"Egg & Potato Post-Workout Plate",
+ tags:["lunch","Saturday","post-workout"],
+ macros:"≈575–625 kcal • 35–40 g protein",
+ ingredients:["1 whole egg","¾ cup egg whites","7–8 oz roasted potatoes","Vegetables","¼ avocado","1 piece fruit"],
+ steps:"Scramble egg and whites with vegetables. Serve with reheated roasted potatoes, avocado, and fruit."
+}
+];
+
+const shopping={
+ "Protein & dairy":["~2½ lb chicken","Lean beef, 5–8 oz","2 cans tuna","1–2 packages extra-firm tofu","Eggs","Liquid egg whites","Cottage cheese","Kirkland Greek yogurt","Kirkland whey"],
+ "Grains & starches":["Rice","Quinoa","Whole-wheat pita","Whole-grain bread","Pasta","Rice cakes","Pretzels","Potatoes / sweet potatoes"],
+ "Legumes":["Chickpeas","Lentils","Hummus"],
+ "Fruit":["Blueberries","Pomegranate seeds","7–10 bananas","Apples","Other fruit you enjoy"],
+ "Vegetables":["Spinach / mixed greens","Broccoli","Zucchini","Bell peppers","Mushrooms","Cauliflower","Tomatoes","Cucumbers","Onions","Green beans","Avocados","Garlic","Lemons / limes"],
+ "Pantry":["Tahini","Olive oil","Soy sauce","Dijon mustard","Tomato sauce","Light coconut milk","Honey / jam","Salsa","Curry powder or paste","Cumin","Paprika","Coriander","Turmeric","Ginger","Garlic powder","Sriracha"]
+};
+
+const prep=[
+ "Cook ~2½ lb chicken: ~1½ lb shawarma seasoned, ~1 lb lemon-garlic / neutral.",
+ "Cook ~1½ cups dry rice (about 4½ cups cooked).",
+ "Cook ~1 cup dry quinoa (about 3 cups cooked).",
+ "Roast ~2 lb potatoes / sweet potatoes.",
+ "Roast a large sheet pan of broccoli, zucchini, peppers, onion, cauliflower, and mushrooms.",
+ "Drain/rinse chickpeas; portion cooked lentils into ~½-cup servings.",
+ "Make tahini-lemon sauce: tahini + lemon + water + garlic + salt.",
+ "Make yogurt-herb sauce: Greek yogurt + lemon + dill/parsley + garlic + salt.",
+ "Wash/chop fresh cucumber, tomatoes, greens, and peppers for quick lunch assembly.",
+ "Portion chicken into 3–5 oz servings for quick bowls, wraps, salads, and pasta."
+];
+
+function $(id){return document.getElementById(id)}
+function load(k,d){try{return JSON.parse(localStorage.getItem(k)) ?? d}catch(e){return d}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+let schedule=load("schedule",defaultSchedule);
+let logs=load("mealLogs",[]);
+let shopChecks=load("shopChecks",{});
+let prepChecks=load("prepChecks",{});
+
+function goTab(tab){
+ document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
+ document.querySelectorAll("#mobileBottomNav button").forEach(x=>x.classList.toggle("active",x.dataset.mobileTab===tab));
+ document.querySelectorAll("main section").forEach(x=>x.classList.remove("active"));
+ const s=$(tab); if(s)s.classList.add("active");
+ if(tab==="tracker") renderTracker();
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+window.goTab=goTab;
+
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
+document.querySelectorAll("#mobileBottomNav button").forEach(b=>b.onclick=()=>goTab(b.dataset.mobileTab));
+
+function renderTargets(type){
+ const t=targets[type];
+ return [["Calories",t.cal],["Protein",t.protein+" g"],["Carbs",t.carbs+" g"],["Fat",t.fat+" g"],["Fiber",t.fiber+" g"]]
+ .map(([a,b])=>`<div class="kpi"><small>${a}</small><br><b>${b}</b></div>`).join("");
+}
+function dayName(d=new Date()){return ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()]}
+
+function renderToday(){
+ const d=new Date(); $("todayDate").textContent=d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
+ $("todayType").innerHTML=Object.keys(targets).map(x=>`<option ${x===schedule[dayName(d)]?"selected":""}>${x}</option>`).join("");
+ const type=$("todayType").value; $("todayTargets").innerHTML=renderTargets(type);
+ renderRemainingToday();
+ const m=dayMenus[dayName(d)];
+ $("todayMenu").innerHTML=`<div class="muted">${m.timing}</div>`+m.meals.map(x=>`<div class="meal"><b>${x[0]}:</b> ${x[1]}</div>`).join("");
+ $("todayType").onchange=()=>{schedule[dayName(d)]=$("todayType").value;save("schedule",schedule);renderToday();renderWeek();renderSchedule();}
+}
+
+function renderRemainingToday(){
+  const date=new Date().toISOString().slice(0,10);
+  const dayLogs=logs.filter(x=>x.date===date);
+  const sum=(k)=>dayLogs.reduce((a,x)=>a+(+x[k]||0),0);
+  const type=schedule[dayName(new Date())]||"Rest / easy";
+  const t=targets[type];
+  const items=[
+    ["Calories",Math.max(0,t.cal-sum("cal")),""],
+    ["Protein",Math.max(0,t.protein-sum("protein"))," g"],
+    ["Carbs",Math.max(0,t.carbs-sum("carbs"))," g"],
+    ["Fat",Math.max(0,t.fat-sum("fat"))," g"]
+  ];
+  $("remainingToday").innerHTML=items.map(([n,v,u])=>`<div class="kpi"><small>${n}</small><br><b>${Math.round(v)}${u}</b></div>`).join("");
+}
+
+function renderWeek(){
+ $("weekMenu").innerHTML=Object.entries(dayMenus).map(([d,m])=>`<div class="card day-card"><h3>${d}</h3><div class="tag">${schedule[d]}</div><div class="muted">${m.timing}</div><div style="margin-top:8px">${m.meals.map(x=>`<div class="meal"><b>${x[0]}</b><br>${x[1]}</div>`).join("")}</div></div>`).join("");
+}
+function renderRecipes(filter=""){
+ const f=filter.toLowerCase();
+ $("recipeList").innerHTML=recipes.filter(r=>(r.name+" "+r.tags.join(" ")).toLowerCase().includes(f)).map(r=>`
+ <div class="card recipe"><h3>${r.name}</h3><div>${r.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+ <p class="muted">${r.macros}</p><details><summary><b>Ingredients & directions</b></summary>
+ <ul>${r.ingredients.map(i=>`<li>${i}</li>`).join("")}</ul><p>${r.steps}</p></details></div>`).join("");
+}
+$("recipeSearch").oninput=e=>renderRecipes(e.target.value);
+
+function renderShopping(){
+ $("shoppingList").innerHTML=Object.entries(shopping).map(([cat,items])=>`<div class="card"><h3>${cat}</h3>`+items.map(i=>{
+  const key=cat+"|"+i; return `<label><input type="checkbox" ${shopChecks[key]?"checked":""} onchange="toggleShop('${encodeURIComponent(key)}',this.checked)"> ${i}</label>`;
+ }).join("")+`</div>`).join("");
+}
+window.toggleShop=(k,v)=>{shopChecks[decodeURIComponent(k)]=v;save("shopChecks",shopChecks)}
+
+function renderPrep(){
+ $("prepList").innerHTML=`<div class="card">`+prep.map((i,idx)=>`<label><input type="checkbox" ${prepChecks[idx]?"checked":""} onchange="togglePrep(${idx},this.checked)"> ${i}</label>`).join("")+`</div>`;
+}
+window.togglePrep=(i,v)=>{prepChecks[i]=v;save("prepChecks",prepChecks)}
+
+function renderSchedule(){
+ $("scheduleEditor").innerHTML=Object.keys(defaultSchedule).map(d=>`<div class="row" style="margin:8px 0"><b style="width:110px">${d}</b><select style="max-width:250px" onchange="setDay('${d}',this.value)">${Object.keys(targets).map(t=>`<option ${schedule[d]===t?"selected":""}>${t}</option>`).join("")}</select></div>`).join("");
+}
+window.setDay=(d,v)=>{schedule[d]=v;save("schedule",schedule);renderToday();renderWeek();}
+
+function addLog(){
+ const date=$("logDate").value, meal=$("logMeal").value.trim(); if(!date||!meal){alert("Please enter a date and meal/food.");return}
+ logs.push({id:Date.now(),date,meal,cal:+$("logCal").value||0,protein:+$("logPro").value||0,carbs:+$("logCarb").value||0,fat:+$("logFat").value||0,fiber:+$("logFiber").value||0,notes:$("logNotes").value.trim()});
+ save("mealLogs",logs); ["logMeal","logCal","logPro","logCarb","logFat","logFiber","logNotes"].forEach(id=>$(id).value=""); $("viewDate").value=date; renderTracker();
+}
+window.addLog=addLog;
+window.addBreakfast=()=>{
+ $("logMeal").value="Usual Greek yogurt protein bowl"; $("logCal").value=480; $("logPro").value=49; $("logCarb").value=38; $("logFat").value=18; $("logFiber").value=7;
+}
+function renderTracker(){
+ const date=$("viewDate").value||new Date().toISOString().slice(0,10); $("viewDate").value=date; $("logDate").value=$("logDate").value||date;
+ const dayLogs=logs.filter(x=>x.date===date); const sum=(k)=>dayLogs.reduce((a,x)=>a+(+x[k]||0),0);
+ const weekday=new Date(date+"T12:00:00").toLocaleDateString(undefined,{weekday:"long"}); const t=targets[schedule[weekday]||"Rest / easy"];
+ const vals=[["Calories",sum("cal"),t.cal,""],["Protein",sum("protein"),t.protein,"g"],["Carbs",sum("carbs"),t.carbs,"g"],["Fat",sum("fat"),t.fat,"g"],["Fiber",sum("fiber"),t.fiber,"g"]];
+ $("dailyTotals").innerHTML=`<div class="grid">`+vals.map(([n,v,g,u])=>`<div class="kpi"><small>${n}</small><br><b>${Math.round(v*10)/10}${u}</b> / ${g}${u}<div class="progress"><div class="bar" style="width:${Math.min(100,v/g*100)}%"></div></div></div>`).join("")+`</div>`;
+ renderRemainingToday();
+ $("logTable").innerHTML=dayLogs.length?`<table><thead><tr><th>Meal</th><th>Cal</th><th>P</th><th>C</th><th>F</th><th>Fiber</th><th></th></tr></thead><tbody>${dayLogs.map(x=>`<tr><td>${x.meal}${x.notes?`<br><small>${x.notes}</small>`:""}</td><td>${x.cal}</td><td>${x.protein}</td><td>${x.carbs}</td><td>${x.fat}</td><td>${x.fiber}</td><td><button class="danger" onclick="delLog(${x.id})">Delete</button></td></tr>`).join("")}</tbody></table>`:`<p class="muted">No entries for this date yet.</p>`;
+}
+$("viewDate").onchange=renderTracker;
+window.delLog=id=>{logs=logs.filter(x=>x.id!==id);save("mealLogs",logs);renderTracker()}
+window.clearLogs=()=>{if(confirm("Delete all meal log entries?")){logs=[];save("mealLogs",logs);renderTracker()}}
+window.exportData=()=>{
+ const blob=new Blob([JSON.stringify({mealLogs:logs,schedule,shopChecks,prepChecks,customMeals,photoMeals},null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="liraz-nutrition-backup.json";a.click();URL.revokeObjectURL(a.href);
+}
+$("importFile").onchange=e=>{
+ const f=e.target.files[0]; if(!f)return; const reader=new FileReader(); reader.onload=()=>{
+  try{const d=JSON.parse(reader.result); if(d.mealLogs)logs=d.mealLogs;if(d.schedule)schedule=d.schedule;if(d.shopChecks)shopChecks=d.shopChecks;if(d.prepChecks)prepChecks=d.prepChecks;if(d.customMeals)customMeals=d.customMeals;if(d.photoMeals)photoMeals=d.photoMeals;
+  save("mealLogs",logs);save("schedule",schedule);save("shopChecks",shopChecks);save("prepChecks",prepChecks);save("customMeals",customMeals);save("photoMeals",photoMeals);renderAll();alert("Backup imported.");}catch(err){alert("Could not read this backup file.");}
+ };reader.readAsText(f);
+}
+
+
+const foodDB = {
+ "Cooked chicken breast": {cal:165, protein:31, carbs:0, fat:3.6, fiber:0},
+ "Cooked chicken thigh, skinless": {cal:209, protein:26, carbs:0, fat:10.9, fiber:0},
+ "Extra-firm tofu": {cal:144, protein:17, carbs:2.8, fat:8.7, fiber:2.3},
+ "Lean beef, cooked": {cal:217, protein:26, carbs:0, fat:12, fiber:0},
+ "Canned tuna in water, drained": {cal:116, protein:26, carbs:0, fat:0.8, fiber:0},
+ "Whole egg": {cal:143, protein:12.6, carbs:0.7, fat:9.5, fiber:0},
+ "Egg whites": {cal:52, protein:10.9, carbs:0.7, fat:0.2, fiber:0},
+ "Kirkland nonfat Greek yogurt": {cal:88, protein:15.9, carbs:6.2, fat:0, fiber:0},
+ "Cottage cheese 2%": {cal:82, protein:11.1, carbs:3.4, fat:2.3, fiber:0},
+ "Chickpeas, cooked": {cal:164, protein:8.9, carbs:27.4, fat:2.6, fiber:7.6},
+ "Lentils, cooked": {cal:116, protein:9, carbs:20.1, fat:0.4, fiber:7.9},
+ "White rice, cooked": {cal:130, protein:2.4, carbs:28.2, fat:0.3, fiber:0.4},
+ "Brown rice, cooked": {cal:123, protein:2.7, carbs:25.6, fat:1, fiber:1.6},
+ "Quinoa, cooked": {cal:120, protein:4.4, carbs:21.3, fat:1.9, fiber:2.8},
+ "Pasta, cooked": {cal:157, protein:5.8, carbs:30.9, fat:0.9, fiber:1.8},
+ "Potato, cooked": {cal:87, protein:1.9, carbs:20.1, fat:0.1, fiber:1.8},
+ "Sweet potato, cooked": {cal:90, protein:2, carbs:20.7, fat:0.2, fiber:3.3},
+ "Avocado": {cal:160, protein:2, carbs:8.5, fat:14.7, fiber:6.7},
+ "Olive oil": {cal:884, protein:0, carbs:0, fat:100, fiber:0},
+ "Tahini": {cal:595, protein:17, carbs:21, fat:54, fiber:9.3},
+ "Hummus": {cal:166, protein:7.9, carbs:14.3, fat:9.6, fiber:6},
+ "Blueberries": {cal:57, protein:0.7, carbs:14.5, fat:0.3, fiber:2.4},
+ "Pomegranate arils": {cal:83, protein:1.7, carbs:18.7, fat:1.2, fiber:4},
+ "Banana": {cal:89, protein:1.1, carbs:22.8, fat:0.3, fiber:2.6},
+ "Apple": {cal:52, protein:0.3, carbs:13.8, fat:0.2, fiber:2.4},
+ "Whole-wheat bread": {cal:247, protein:13, carbs:41, fat:4.2, fiber:6.8},
+ "Whole-wheat pita": {cal:275, protein:9.1, carbs:55.7, fat:1.2, fiber:6.1},
+ "Rice cake": {cal:387, protein:8, carbs:81, fat:2.8, fiber:4.2},
+ "Honey": {cal:304, protein:0.3, carbs:82.4, fat:0, fiber:0.2},
+ "Jam": {cal:250, protein:0.4, carbs:65, fat:0.1, fiber:1},
+ "Custom ingredient": {cal:0, protein:0, carbs:0, fat:0, fiber:0}
+};
+
+let customMeals = load("customMeals", []);
+let ingredientRowCounter = 0;
+
+function foodOptions(selected=""){
+  return Object.keys(foodDB).map(f=>`<option ${f===selected?"selected":""}>${f}</option>`).join("");
+}
+
+function addIngredientRow(prefill=null){
+  const id = ++ingredientRowCounter;
+  const box = document.createElement("div");
+  box.className = "card";
+  box.id = "ingrow_"+id;
+  const name = prefill?.name || "Cooked chicken breast";
+  const grams = prefill?.grams || 100;
+  const data = prefill?.data || foodDB[name];
+  box.innerHTML = `
+    <div class="formgrid">
+      <div class="wide"><label>Ingredient</label><select class="ingName" onchange="ingredientChanged(${id})">${foodOptions(name)}</select></div>
+      <div><label>Amount (g)</label><input class="ingGrams" type="number" min="0" step="1" value="${grams}" oninput="updateCustomTotals()"></div>
+      <div><label>kcal / 100g</label><input class="ingCal" type="number" step="0.1" value="${data.cal}" oninput="updateCustomTotals()"></div>
+      <div><label>Protein / 100g</label><input class="ingProtein" type="number" step="0.1" value="${data.protein}" oninput="updateCustomTotals()"></div>
+      <div><label>Carbs / 100g</label><input class="ingCarbs" type="number" step="0.1" value="${data.carbs}" oninput="updateCustomTotals()"></div>
+      <div><label>Fat / 100g</label><input class="ingFat" type="number" step="0.1" value="${data.fat}" oninput="updateCustomTotals()"></div>
+      <div><label>Fiber / 100g</label><input class="ingFiber" type="number" step="0.1" value="${data.fiber}" oninput="updateCustomTotals()"></div>
+      <div><label>&nbsp;</label><button class="danger" onclick="removeIngredientRow(${id})">Remove</button></div>
+    </div>`;
+  $("ingredientRows").appendChild(box);
+  updateCustomTotals();
+}
+window.addIngredientRow=addIngredientRow;
+
+function ingredientChanged(id){
+  const row=$("ingrow_"+id), sel=row.querySelector(".ingName").value, d=foodDB[sel];
+  row.querySelector(".ingCal").value=d.cal;
+  row.querySelector(".ingProtein").value=d.protein;
+  row.querySelector(".ingCarbs").value=d.carbs;
+  row.querySelector(".ingFat").value=d.fat;
+  row.querySelector(".ingFiber").value=d.fiber;
+  updateCustomTotals();
+}
+window.ingredientChanged=ingredientChanged;
+
+function removeIngredientRow(id){ const r=$("ingrow_"+id); if(r)r.remove(); updateCustomTotals(); }
+window.removeIngredientRow=removeIngredientRow;
+
+function currentIngredients(){
+  return [...document.querySelectorAll("#ingredientRows .card")].map(row=>({
+    name:row.querySelector(".ingName").value,
+    grams:+row.querySelector(".ingGrams").value||0,
+    data:{
+      cal:+row.querySelector(".ingCal").value||0,
+      protein:+row.querySelector(".ingProtein").value||0,
+      carbs:+row.querySelector(".ingCarbs").value||0,
+      fat:+row.querySelector(".ingFat").value||0,
+      fiber:+row.querySelector(".ingFiber").value||0
+    }
+  }));
+}
+function calcIngredients(ings){
+  const t={cal:0,protein:0,carbs:0,fat:0,fiber:0};
+  ings.forEach(i=>Object.keys(t).forEach(k=>t[k]+=i.grams/100*(+i.data[k]||0)));
+  return t;
+}
+function updateCustomTotals(){
+  const t=calcIngredients(currentIngredients());
+  $("customTotals").innerHTML=[
+    ["Calories",t.cal,""],["Protein",t.protein," g"],["Carbs",t.carbs," g"],["Fat",t.fat," g"],["Fiber",t.fiber," g"]
+  ].map(([n,v,u])=>`<div class="kpi"><small>${n}</small><br><b>${Math.round(v*10)/10}${u}</b></div>`).join("");
+}
+window.updateCustomTotals=updateCustomTotals;
+
+function saveCustomMeal(){
+  const name=$("cmName").value.trim();
+  if(!name){alert("Please name the meal.");return}
+  const ingredients=currentIngredients();
+  if(!ingredients.length){alert("Add at least one ingredient.");return}
+  const totals=calcIngredients(ingredients);
+  customMeals.push({id:Date.now(),name,notes:$("cmNotes").value.trim(),ingredients,totals});
+  save("customMeals",customMeals);
+  $("cmName").value=""; $("cmNotes").value="";
+  $("ingredientRows").innerHTML=""; addIngredientRow(); renderSavedMeals();
+}
+window.saveCustomMeal=saveCustomMeal;
+
+function renderSavedMeals(){
+  $("savedMeals").innerHTML = customMeals.length ? customMeals.map(m=>`
+    <div class="card">
+      <div class="row"><div class="grow"><b>${m.name}</b><br><small>${m.notes||""}</small></div>
+      <button class="primary" onclick="logSavedMeal(${m.id})">Log meal</button>
+      <button class="danger" onclick="deleteCustomMeal(${m.id})">Delete</button></div>
+      <p class="muted">≈ ${Math.round(m.totals.cal)} kcal • ${Math.round(m.totals.protein)} g protein • ${Math.round(m.totals.carbs)} g carbs • ${Math.round(m.totals.fat)} g fat • ${Math.round(m.totals.fiber)} g fiber</p>
+      <details><summary>Ingredients</summary><ul>${m.ingredients.map(i=>`<li>${i.name}: ${i.grams} g</li>`).join("")}</ul></details>
+    </div>`).join("") : `<p class="muted">No custom meals saved yet.</p>`;
+}
+function logSavedMeal(id){
+  const m=customMeals.find(x=>x.id===id); if(!m)return;
+  const date=new Date().toISOString().slice(0,10);
+  logs.push({id:Date.now(),date,meal:m.name,cal:+m.totals.cal.toFixed(1),protein:+m.totals.protein.toFixed(1),carbs:+m.totals.carbs.toFixed(1),fat:+m.totals.fat.toFixed(1),fiber:+m.totals.fiber.toFixed(1),notes:"Saved custom meal"});
+  save("mealLogs",logs); $("viewDate").value=date; renderTracker(); alert("Meal logged for today.");
+}
+window.logSavedMeal=logSavedMeal;
+function deleteCustomMeal(id){customMeals=customMeals.filter(x=>x.id!==id);save("customMeals",customMeals);renderSavedMeals()}
+window.deleteCustomMeal=deleteCustomMeal;
+
+
+let photoMeals = load("photoMeals", []);
+let pendingPhotoData = "";
+
+function resizeImageFile(file, maxDim=900, quality=0.78){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        const scale=Math.min(1,maxDim/Math.max(w,h));
+        w=Math.round(w*scale); h=Math.round(h*scale);
+        const c=document.createElement("canvas"); c.width=w; c.height=h;
+        const ctx=c.getContext("2d"); ctx.drawImage(img,0,0,w,h);
+        resolve(c.toDataURL("image/jpeg",quality));
+      };
+      img.onerror=reject;
+      img.src=reader.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+$("photoMealFile").onchange = async (e)=>{
+  const f=e.target.files[0];
+  if(!f){pendingPhotoData=""; $("photoPreviewWrap").style.display="none"; return;}
+  try{
+    pendingPhotoData=await resizeImageFile(f);
+    $("photoPreview").src=pendingPhotoData;
+    $("photoPreviewWrap").style.display="block";
+  }catch(err){
+    alert("Could not read that image.");
+  }
+};
+
+function clearPhotoForm(){
+  ["photoMealName","photoMealNotes","photoCal","photoPro","photoCarb","photoFat","photoFiber"].forEach(id=>$(id).value="");
+  $("photoMealFile").value="";
+  pendingPhotoData="";
+  $("photoPreviewWrap").style.display="none";
+  $("photoPreview").src="";
+}
+window.clearPhotoForm=clearPhotoForm;
+
+function savePhotoMeal(){
+  const name=$("photoMealName").value.trim();
+  if(!name){alert("Please enter a meal name.");return}
+  const meal={
+    id:Date.now(),
+    name,
+    notes:$("photoMealNotes").value.trim(),
+    image:pendingPhotoData||"",
+    totals:{
+      cal:+$("photoCal").value||0,
+      protein:+$("photoPro").value||0,
+      carbs:+$("photoCarb").value||0,
+      fat:+$("photoFat").value||0,
+      fiber:+$("photoFiber").value||0
+    }
+  };
+  try{
+    photoMeals.push(meal);
+    save("photoMeals",photoMeals);
+  }catch(e){
+    photoMeals.pop();
+    alert("Browser storage is full. Try saving without the photo, or export/clear older photo meals.");
+    return;
+  }
+  clearPhotoForm();
+  renderPhotoMeals();
+}
+window.savePhotoMeal=savePhotoMeal;
+
+function renderPhotoMeals(){
+  $("photoMealsList").innerHTML = photoMeals.length ? photoMeals.slice().reverse().map(m=>`
+    <div class="card">
+      <div class="row">
+        ${m.image?`<img src="${m.image}" alt="${m.name}" style="width:110px;height:90px;object-fit:cover;border-radius:12px;border:1px solid var(--line)">`:""}
+        <div class="grow">
+          <b>${m.name}</b>
+          ${m.notes?`<div class="muted" style="margin-top:4px">${escapeHtml(m.notes)}</div>`:""}
+          <div class="muted" style="margin-top:6px">≈ ${Math.round(m.totals.cal)} kcal • ${Math.round(m.totals.protein)} g protein • ${Math.round(m.totals.carbs)} g carbs • ${Math.round(m.totals.fat)} g fat • ${Math.round(m.totals.fiber)} g fiber</div>
+        </div>
+        <button class="primary" onclick="logPhotoMeal(${m.id})">Log meal</button>
+        <button class="secondary" onclick="convertPhotoToCustom(${m.id})">Make custom meal</button>
+        <button class="danger" onclick="deletePhotoMeal(${m.id})">Delete</button>
+      </div>
+    </div>`).join("") : `<p class="muted">No photo meals saved yet.</p>`;
+}
+
+function logPhotoMeal(id){
+  const m=photoMeals.find(x=>x.id===id); if(!m)return;
+  const date=new Date().toISOString().slice(0,10);
+  logs.push({
+    id:Date.now(),date,meal:m.name,
+    cal:+m.totals.cal||0, protein:+m.totals.protein||0, carbs:+m.totals.carbs||0,
+    fat:+m.totals.fat||0, fiber:+m.totals.fiber||0,
+    notes:m.notes ? "Photo estimate: "+m.notes : "Photo estimate"
+  });
+  save("mealLogs",logs); $("viewDate").value=date; renderTracker(); alert("Photo meal logged for today.");
+}
+window.logPhotoMeal=logPhotoMeal;
+
+function convertPhotoToCustom(id){
+  const m=photoMeals.find(x=>x.id===id); if(!m)return;
+  const pseudo={
+    id:Date.now(),
+    name:m.name,
+    notes:"Created from photo estimate"+(m.notes?": "+m.notes:""),
+    ingredients:[],
+    totals:{...m.totals}
+  };
+  customMeals.push(pseudo);
+  save("customMeals",customMeals);
+  renderSavedMeals();
+  alert("Saved to Custom Meals.");
+}
+window.convertPhotoToCustom=convertPhotoToCustom;
+
+function deletePhotoMeal(id){
+  photoMeals=photoMeals.filter(x=>x.id!==id);
+  save("photoMeals",photoMeals);
+  renderPhotoMeals();
+}
+window.deletePhotoMeal=deletePhotoMeal;
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+}
+
+function renderAll(){renderToday();renderWeek();renderRecipes();renderShopping();renderPrep();renderSchedule();renderTracker();renderSavedMeals();renderPhotoMeals(); if(!$("ingredientRows").children.length)addIngredientRow();}
+renderAll();
+</script>
+
+<script>
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+</script>
+
+</body>
+</html>
