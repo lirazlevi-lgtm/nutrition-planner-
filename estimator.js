@@ -193,6 +193,188 @@
       area.querySelector('.estimate-total').innerHTML=`<strong>Estimated total:</strong> ${Math.round(totals.cal)} kcal · ${fmt(totals.protein)} g protein · ${fmt(totals.carbs)} g carbs · ${fmt(totals.fat)} g fat · ${fmt(totals.fiber)} g fiber`;
     }));
   }
+  // V6: Searchable meal library. Uses planned recipes, saved custom/photo meals,
+  // and the most recent logged macros for meals the user has eaten before.
+  function installMealPicker(field, result) {
+    const cleanTotals = raw => {
+      if (!raw || typeof raw !== 'object') return null;
+      const keys = ['cal', 'protein', 'carbs', 'fat', 'fiber'];
+      const totals = {};
+      for (const key of keys) {
+        if (raw[key] === undefined || raw[key] === null || raw[key] === '' || !Number.isFinite(Number(raw[key])) || Number(raw[key]) < 0) return null;
+        totals[key] = Number(raw[key]);
+      }
+      return keys.some(key => totals[key] > 0) ? totals : null;
+    };
+    const plannedAlias = {
+      'egg potato plate': 'Egg & Potato Post-Workout Plate'
+    };
+    const plannedTotals = name => {
+      const canonical = plannedAlias[normalize(name)] || name;
+      if (/\b(or|optional|if needed)\b/i.test(canonical)) return null;
+      const value = estimate(canonical);
+      if (value.recipe) return cleanTotals(value.totals);
+      // Only infer an unsaved planned snack when its components are explicitly
+      // listed and all are recognized. A name like "chicken pasta bowl" is not
+      // enough to estimate a full recipe from a single matching word.
+      if (/[+,]/.test(canonical) && !canonical.includes('/') && value.parts.length >= 2 && !value.unknown.length) return cleanTotals(value.totals);
+      return null;
+    };
+    function mealLibrary() {
+      const found = new Map();
+      const add = (name, totals, source, priority, date = '') => {
+        if (typeof name !== 'string' || !name.trim()) return;
+        const key = normalize(name);
+        if (!key) return;
+        const entry = {name:name.trim(), totals:cleanTotals(totals), source, priority, date};
+        const existing = found.get(key);
+        // Prefer a usable macro profile to an empty one, then user meals to presets.
+        if (existing && ((existing.totals && !entry.totals) ||
+            (!!existing.totals === !!entry.totals && existing.priority > entry.priority))) return;
+        found.set(key, entry);
+      };
+      add('Usual Greek yogurt protein bowl', plannedTotals('Usual Greek yogurt protein bowl'), 'Suggested meals', 2);
+      recipes.forEach(recipe => add(recipe.name, plannedTotals(recipe.name), 'Suggested meals', 2));
+      Object.values(dayMenus).forEach(day => day.meals.forEach(([, name]) => {
+        if (/^water only/i.test(name)) return;
+        add(name, plannedTotals(name), 'Suggested meals', 1);
+      }));
+      // Entries from the tracker become reusable automatically. The most recent
+      // log for a name wins, unless a named custom meal overrides it.
+      logs.forEach(log => add(log.meal, {
+        cal:log.cal, protein:log.protein, carbs:log.carbs, fat:log.fat, fiber:log.fiber
+      }, 'Previously logged', 3, log.date || ''));
+      photoMeals.forEach(meal => add(meal.name, meal.totals, 'Photo meals', 4));
+      customMeals.forEach(meal => add(meal.name, meal.totals, 'Your custom meals', 5));
+      return Array.from(found.values()).sort((a,b) =>
+        b.priority-a.priority || (a.source === 'Previously logged' && b.source === 'Previously logged' ? b.date.localeCompare(a.date) : 0) || a.name.localeCompare(b.name)
+      );
+    }
+
+    const picker = document.createElement('div');
+    picker.className = 'meal-picker';
+    picker.innerHTML = `
+      <div class="meal-picker-toolbar">
+        <button type="button" id="browseMealsBtn" class="secondary" aria-expanded="false" aria-controls="mealPickerList">▾ Browse saved & suggested meals</button>
+        <small>Or start typing above to search</small>
+      </div>
+      <div id="mealPickerList" class="meal-picker-list" hidden aria-label="Matching meals"></div>
+      <div id="mealPickerStatus" class="meal-picker-status" role="status" hidden></div>`;
+    field.insertAdjacentElement('afterend', picker);
+    const browse = $('browseMealsBtn'), list = $('mealPickerList'), status = $('mealPickerStatus');
+    let open = false, selected = false, selectedNeedsMacros = false;
+    const setOpen = value => {
+      open = value;
+      list.hidden = !value;
+      browse.setAttribute('aria-expanded', String(value));
+      browse.textContent = value ? '▴ Close meal list' : '▾ Browse saved & suggested meals';
+    };
+    const showStatus = (message, warning = false) => {
+      status.hidden = false;
+      status.classList.toggle('warning', warning);
+      status.textContent = message;
+    };
+    const hideStatus = () => { status.hidden = true; status.textContent = ''; };
+    const clearMacros = () => ['logCal','logPro','logCarb','logFat','logFiber'].forEach(id => $(id).value = '');
+    function choose(entry) {
+      field.value = entry.name;
+      current = null;
+      result.hidden = true;
+      result.innerHTML = '';
+      selected = true;
+      selectedNeedsMacros = !entry.totals;
+      if (entry.totals) {
+        applyTotals(entry.totals);
+        showStatus(`Filled from ${entry.source.toLowerCase()}. Macros are approximate; check the portion size before logging.`);
+      } else {
+        clearMacros();
+        showStatus('This suggested meal has no complete macro profile yet. Enter ingredients and tap Estimate macros, or fill the nutrition fields manually.', true);
+      }
+      setOpen(false);
+    }
+    function render(query = '') {
+      const filter = normalize(query);
+      const matches = mealLibrary().filter(entry => normalize(entry.name).includes(filter));
+      list.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement('p');
+        empty.className = 'muted';
+        empty.textContent = 'No matching saved meal. You can still estimate a new description and log it to reuse later.';
+        list.appendChild(empty);
+        return;
+      }
+      let lastGroup = '';
+      for (const entry of matches) {
+        if (entry.source !== lastGroup) {
+          lastGroup = entry.source;
+          const heading = document.createElement('div');
+          heading.className = 'meal-picker-group';
+          heading.textContent = lastGroup;
+          list.appendChild(heading);
+        }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'meal-picker-choice';
+        const title = document.createElement('strong');
+        title.textContent = entry.name;
+        const sub = document.createElement('small');
+        const t = entry.totals;
+        sub.textContent = t ? `${Math.round(t.cal)} kcal · ${fmt(t.protein)}g protein · ${fmt(t.carbs)}g carbs · ${fmt(t.fat)}g fat · ${fmt(t.fiber)}g fiber` : 'Nutrition not yet saved — estimate before logging';
+        button.append(title, sub);
+        button.addEventListener('click', () => choose(entry));
+        list.appendChild(button);
+      }
+    }
+    browse.addEventListener('click', () => {
+      if (open) { setOpen(false); return; }
+      render('');
+      setOpen(true);
+    });
+    field.addEventListener('input', () => {
+      if (selected) {
+        selected = false;
+        selectedNeedsMacros = false;
+        clearMacros();
+        showStatus('Meal description changed. Select a meal again or tap Estimate macros before logging.', true);
+      } else {
+        hideStatus();
+      }
+      if (field.value.trim()) {
+        render(field.value);
+        setOpen(true);
+      } else {
+        setOpen(false);
+      }
+    });
+    field.addEventListener('focus', () => {
+      if (field.value.trim()) { render(field.value); setOpen(true); }
+    });
+    field.addEventListener('keydown', event => { if (event.key === 'Escape') setOpen(false); });
+    $('estimateMacrosBtn').addEventListener('click', () => {
+      setOpen(false);
+      selected = false;
+      selectedNeedsMacros = false;
+      hideStatus();
+    });
+    const previousAddLog = window.addLog;
+    window.addLog = function () {
+      if (selectedNeedsMacros && ['logCal','logPro','logCarb','logFat','logFiber'].every(id => !$(id).value.trim())) {
+        alert('This meal has no saved macros yet. Please estimate or enter its nutrition values before logging.');
+        return;
+      }
+      const before = logs.length;
+      previousAddLog();
+      if (logs.length > before) {
+        selected = false;
+        selectedNeedsMacros = false;
+        hideStatus();
+        setOpen(false);
+      }
+    };
+    // Small test API; no personal meal data is sent anywhere.
+    window.nutritionMealLibrary = mealLibrary;
+  }
+
   function install(){
     const field=$('logMeal');
     if(!field)return;
@@ -245,6 +427,7 @@
       sheet.querySelector('.more-sheet-backdrop').onclick=()=>sheet.hidden=true;
       sheet.querySelector('#closeMore').onclick=()=>sheet.hidden=true;
     }
+    installMealPicker(field, result);
   }
   const style=document.createElement('style');
   style.textContent=`
@@ -263,6 +446,20 @@
     .more-sheet-content{position:absolute;bottom:0;left:0;right:0;background:white;padding:20px 16px calc(20px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0;max-height:80vh;overflow:auto}
     .more-sheet-buttons{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
     .more-sheet-buttons button{min-height:55px}
+    .meal-picker-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:9px}
+    .meal-picker-toolbar button{min-height:44px}
+    .meal-picker-toolbar small{font-weight:400}
+    .meal-picker-list{margin-top:8px;max-height:290px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #d7dfda;border-radius:12px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.07)}
+    .meal-picker-list[hidden],.meal-picker-status[hidden]{display:none!important}
+    .meal-picker-list>p{padding:10px}
+    .meal-picker-group{position:sticky;top:0;background:#eef3ef;padding:9px 12px;color:#465d50;font-size:.79rem;font-weight:750;letter-spacing:.01em;border-bottom:1px solid #d7dfda}
+    .meal-picker-choice{display:block;text-align:left;width:100%;background:#fff;border-radius:0;border-bottom:1px solid #edf0ee;padding:12px;min-height:62px;font-weight:400}
+    .meal-picker-choice:last-child{border-bottom:0}
+    .meal-picker-choice:active,.meal-picker-choice:focus-visible{background:#eef3ef;outline:2px solid #789785;outline-offset:-2px}
+    .meal-picker-choice strong{display:block;font-size:.93rem}
+    .meal-picker-choice small{display:block;font-size:.8rem;color:#66736b;margin-top:4px;line-height:1.4}
+    .meal-picker-status{margin-top:8px;border-radius:10px;background:#eef3ef;padding:10px;font-size:.84rem;color:#355742;line-height:1.4}
+    .meal-picker-status.warning{background:#fff8e6;color:#86551b}
   `;
   document.head.appendChild(style);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);

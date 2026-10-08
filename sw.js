@@ -1,5 +1,5 @@
-const CACHE = "liraz-nutrition-v5";
-const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-512.png"];
+const CACHE = "liraz-nutrition-v7";
+const ASSETS = ["./", "./index.html", "./estimator.js?v=7", "./manifest.webmanifest", "./icon-180.png", "./icon-512.png"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });

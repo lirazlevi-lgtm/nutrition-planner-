@@ -111,7 +111,7 @@ header{padding-top:env(safe-area-inset-top)}
 <body>
 <header>
   <div class="wrap">
-    <h1>Liraz Nutrition Planner <span class="tag">v5</span></h1>
+    <h1>Liraz Nutrition Planner <span class="tag">v7</span></h1>
     <div class="sub">Body recomposition • strength first • HIIT-friendly fueling</div>
     <nav>
       <button data-tab="today" class="active">Today</button>
@@ -133,6 +133,19 @@ header{padding-top:env(safe-area-inset-top)}
     <div class="row"><div class="grow"><h2 style="margin:0">Today</h2><div id="todayDate" class="muted"></div></div>
       <select id="todayType" style="max-width:260px"></select>
     </div>
+  </div>
+  <div class="card" id="customActivityCard">
+    <h3 style="margin:0 0 6px">Extra or custom activity <span class="tag">Optional</span></h3>
+    <p class="muted" style="margin-top:4px">Keep your usual workout selected above. Add outdoor activities or describe the entire day, such as “HIIT + 5-mile hike”. The app recognizes the routine and avoids counting it twice.</p>
+    <label for="extraActivity">Describe today's activities</label>
+    <textarea id="extraActivity" rows="2" placeholder="e.g., HIIT + 5-mile hike, or 3 hours kayaking"></textarea>
+    <div class="row" style="margin-top:9px">
+      <div class="grow" style="min-width:155px"><label for="extraIntensity">Effort for added activities</label>
+        <select id="extraIntensity"><option value="easy">Easy / leisurely</option><option value="moderate" selected>Moderate</option><option value="vigorous">Vigorous / hilly</option></select></div>
+      <button class="primary" id="applyActivity" onclick="applyCustomActivity()">Estimate & apply</button>
+      <button class="secondary" onclick="clearCustomActivity()">Clear</button>
+    </div>
+    <div id="activityFeedback" class="muted" aria-live="polite" style="margin-top:10px"></div>
   </div>
   <div id="todayTargets" class="grid"></div>
 
@@ -500,6 +513,7 @@ function $(id){return document.getElementById(id)}
 function load(k,d){try{return JSON.parse(localStorage.getItem(k)) ?? d}catch(e){return d}}
 function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
 let schedule=load("schedule",defaultSchedule);
+let activityOverrides=load("activityOverrides",{});
 let logs=load("mealLogs",[]);
 let shopChecks=load("shopChecks",{});
 let prepChecks=load("prepChecks",{});
@@ -517,37 +531,108 @@ window.goTab=goTab;
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
 document.querySelectorAll("#mobileBottomNav button").forEach(b=>b.onclick=()=>goTab(b.dataset.mobileTab));
 
-function renderTargets(type){
- const t=targets[type];
+function targetForDate(date){
+ const weekday=dayName(new Date(date+"T12:00:00"));
+ const override=activityOverrides[date];
+ const base=targets[override?.baseType]||targets[schedule[weekday]]||targets["Rest / easy"];
+ const extra=override?.extra||{cal:0,carbs:0,fat:0};
+ return {cal:base.cal+extra.cal,protein:base.protein,carbs:base.carbs+extra.carbs,fat:base.fat+extra.fat,fiber:base.fiber};
+}
+function renderTargets(t){
  return [["Calories",t.cal],["Protein",t.protein+" g"],["Carbs",t.carbs+" g"],["Fat",t.fat+" g"],["Fiber",t.fiber+" g"]]
  .map(([a,b])=>`<div class="kpi"><small>${a}</small><br><b>${b}</b></div>`).join("");
 }
 function localDateISO(d=new Date()){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
 function dayName(d=new Date()){return ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()]}
 
+const ACTIVITY_WEIGHT_KG=68.5; // Approx. 151 lb; estimates should be reviewed, not treated as exact burn.
+const ACTIVITY_KINDS=[
+ {key:"backpacking",match:/backpack(?:ing)?/,mets:[5,6.5,8],mph:2},
+ {key:"hiking",match:/hik(?:e|ing)|trail walk/,mets:[3.5,5,7],mph:2.5},
+ {key:"kayaking",match:/kayak|paddl(?:e|ing)|canoe/,mets:[2.5,4,6.5],mph:3},
+ {key:"cycling",match:/bik(?:e|ing)|cycl(?:e|ing)/,mets:[4,6,8],mph:11},
+ {key:"climbing",match:/rock climb|climbing|boulder/,mets:[3,5,7],mph:null},
+ {key:"walking",match:/walk(?:ing)?/,mets:[2.5,3.5,4.5],mph:3},
+ {key:"running",match:/run(?:ning)?|jogg(?:ing)?/,mets:[6,8,11],mph:5.5},
+ {key:"swimming",match:/swim(?:ming)?/,mets:[4,6,9],mph:null},
+ {key:"rowing",match:/row(?:ing)?/,mets:[3,5,8],mph:null},
+ {key:"yoga",match:/yoga|pilates|stretch/,mets:[2,2.5,3.5],mph:null},
+];
+function readActivityHours(text,kind){
+ const t=text.toLowerCase();
+ const duration=t.match(/(\d+(?:\.\d+)?)\s*-?\s*(?:hours?|hrs?|h|minutes?|mins?|min)\b/);
+ if(duration){const minutes=/min/.test(duration[0]);return +duration[1]/(minutes?60:1)}
+ const distance=t.match(/(\d+(?:\.\d+)?)\s*-?\s*(?:mi|miles?|km|kilometers?)\b/);
+ if(distance&&kind.mph){const miles=+distance[1]*(/km|kilometer/.test(distance[0])?.621371:1);return miles/kind.mph}
+ return null;
+}
+function parseActivityDescription(description,effort){
+ const parts=description.split(/\s*(?:\+|,|;|\band\b|&)\s*/i).map(x=>x.trim()).filter(Boolean);
+ const intensityIdx={easy:0,moderate:1,vigorous:2}[effort]??1;
+ let baseType=null,netKcal=0;const details=[];const unknown=[];
+ for(const part of parts){
+  if(/\bhiit\b|high.intensity interval/.test(part.toLowerCase())){baseType=/\b2\s*(?:h|hours?|hr)\b|120\s*min/.test(part.toLowerCase())?"HIIT 2 hr":"HIIT 1 hr";continue}
+  if(/\bstrength\b|weight(?:s|lifting| training)?\b|resistance training/.test(part.toLowerCase())){baseType="Strength";continue}
+  if(/\brest\b/.test(part.toLowerCase())){baseType="Rest / easy";continue}
+  const kind=ACTIVITY_KINDS.find(x=>x.match.test(part.toLowerCase()));
+  const hours=readActivityHours(part,kind||{mph:null});
+  if(!hours||hours<=0||hours>18){unknown.push(part+" (add duration or distance)");continue}
+  const met=kind?kind.mets[intensityIdx]:[2.5,4,6][intensityIdx];
+  const energy=Math.max(0,(met-1)*ACTIVITY_WEIGHT_KG*hours);
+  netKcal+=energy;
+  details.push(`${kind?kind.key:"Other activity"}: ${Math.round(hours*10)/10} h`);
+ }
+ if(!parts.length)return {error:"Describe an activity first."};
+ if(unknown.length)return {error:"Could not estimate: "+unknown.join("; ")+". Add a duration (e.g., 90 minutes) or distance for hiking/cycling."};
+ // Moderate fuel replacement, not a promise of exact energy expenditure.
+ const addedCalories=Math.round((netKcal*.65)/25)*25;
+ const addedCarbs=Math.round((addedCalories*.70/4)/5)*5;
+ const addedFat=Math.max(0,Math.round(((addedCalories-addedCarbs*4)/9)/5)*5);
+ return {baseType,extra:{cal:addedCalories,carbs:addedCarbs,fat:addedFat},details,netKcal:Math.round(netKcal)};
+}
+function applyCustomActivity(){
+ const date=localDateISO(),description=$("extraActivity").value.trim(),effort=$("extraIntensity").value;
+ const result=parseActivityDescription(description,effort);
+ if(result.error){$("activityFeedback").textContent=result.error;return}
+ const baseType=result.baseType||$("todayType").value;
+ activityOverrides[date]={baseType,description,effort,extra:result.extra,details:result.details,netKcal:result.netKcal};
+ save("activityOverrides",activityOverrides);renderToday();renderTracker();
+}
+window.applyCustomActivity=applyCustomActivity;
+function clearCustomActivity(){
+ delete activityOverrides[localDateISO()];save("activityOverrides",activityOverrides);
+ $("extraActivity").value="";$("extraIntensity").value="moderate";renderToday();renderTracker();
+}
+window.clearCustomActivity=clearCustomActivity;
 function renderToday(){
- const d=new Date(); $("todayDate").textContent=d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
- $("todayType").innerHTML=Object.keys(targets).map(x=>`<option ${x===schedule[dayName(d)]?"selected":""}>${x}</option>`).join("");
- const type=$("todayType").value; $("todayTargets").innerHTML=renderTargets(type);
+ const d=new Date(),date=localDateISO(d),override=activityOverrides[date];
+ $("todayDate").textContent=d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
+ $("todayType").innerHTML=Object.keys(targets).map(x=>`<option ${x===(override?.baseType||schedule[dayName(d)])?"selected":""}>${x}</option>`).join("");
+ $("todayTargets").innerHTML=renderTargets(targetForDate(date));
+ $("extraActivity").value=override?.description||"";
+ $("extraIntensity").value=override?.effort||"moderate";
+ const feedback=$("activityFeedback");
+ if(override){
+  const add=override.extra;
+  feedback.textContent=`Today's adjustment: +${add.cal} kcal, +${add.carbs} g carbs, +${add.fat} g fat. ${override.details.join("; ")||"Routine only"}. Approximate fueling adjustment, not exact calories burned.`;
+ }else{feedback.textContent="Regular workout targets remain unchanged unless you apply an extra activity."}
  renderRemainingToday();
  const m=dayMenus[dayName(d)];
  $("todayMenu").innerHTML=`<div class="muted">${m.timing}</div>`+m.meals.map(x=>`<div class="meal"><b>${x[0]}:</b> ${x[1]}</div>`).join("");
- $("todayType").onchange=()=>{schedule[dayName(d)]=$("todayType").value;save("schedule",schedule);renderToday();renderWeek();renderSchedule();}
+ $("todayType").onchange=()=>{
+  const value=$("todayType").value;
+  if(activityOverrides[date]){activityOverrides[date].baseType=value;save("activityOverrides",activityOverrides)}
+  else{schedule[dayName(d)]=value;save("schedule",schedule)}
+  renderToday();renderWeek();renderSchedule();renderTracker();
+ };
 }
-
 function renderRemainingToday(){
-  const date=localDateISO();
-  const dayLogs=logs.filter(x=>x.date===date);
-  const sum=(k)=>dayLogs.reduce((a,x)=>a+(+x[k]||0),0);
-  const type=schedule[dayName(new Date())]||"Rest / easy";
-  const t=targets[type];
-  const items=[
-    ["Calories",Math.max(0,t.cal-sum("cal")),""],
-    ["Protein",Math.max(0,t.protein-sum("protein"))," g"],
-    ["Carbs",Math.max(0,t.carbs-sum("carbs"))," g"],
-    ["Fat",Math.max(0,t.fat-sum("fat"))," g"]
-  ];
-  $("remainingToday").innerHTML=items.map(([n,v,u])=>`<div class="kpi"><small>${n}</small><br><b>${Math.round(v)}${u}</b></div>`).join("");
+ const date=localDateISO();
+ const dayLogs=logs.filter(x=>x.date===date);
+ const sum=k=>dayLogs.reduce((a,x)=>a+(+x[k]||0),0);
+ const t=targetForDate(date);
+ const items=[["Calories",Math.max(0,t.cal-sum("cal")),""],["Protein",Math.max(0,t.protein-sum("protein"))," g"],["Carbs",Math.max(0,t.carbs-sum("carbs"))," g"],["Fat",Math.max(0,t.fat-sum("fat"))," g"]];
+ $("remainingToday").innerHTML=items.map(([n,v,u])=>`<div class="kpi"><small>${n}</small><br><b>${Math.round(v)}${u}</b></div>`).join("");
 }
 
 function renderWeek(){
@@ -591,7 +676,7 @@ window.addBreakfast=()=>{
 function renderTracker(){
  const date=$("viewDate").value||localDateISO(); $("viewDate").value=date; $("logDate").value=$("logDate").value||date;
  const dayLogs=logs.filter(x=>x.date===date); const sum=(k)=>dayLogs.reduce((a,x)=>a+(+x[k]||0),0);
- const weekday=new Date(date+"T12:00:00").toLocaleDateString(undefined,{weekday:"long"}); const t=targets[schedule[weekday]||"Rest / easy"];
+ const t=targetForDate(date);
  const vals=[["Calories",sum("cal"),t.cal,""],["Protein",sum("protein"),t.protein,"g"],["Carbs",sum("carbs"),t.carbs,"g"],["Fat",sum("fat"),t.fat,"g"],["Fiber",sum("fiber"),t.fiber,"g"]];
  $("dailyTotals").innerHTML=`<div class="grid">`+vals.map(([n,v,g,u])=>`<div class="kpi"><small>${n}</small><br><b>${Math.round(v*10)/10}${u}</b> / ${g}${u}<div class="progress"><div class="bar" style="width:${Math.min(100,v/g*100)}%"></div></div></div>`).join("")+`</div>`;
  renderRemainingToday();
@@ -601,13 +686,13 @@ $("viewDate").onchange=renderTracker;
 window.delLog=id=>{logs=logs.filter(x=>x.id!==id);save("mealLogs",logs);renderTracker()}
 window.clearLogs=()=>{if(confirm("Delete all meal log entries?")){logs=[];save("mealLogs",logs);renderTracker()}}
 window.exportData=()=>{
- const blob=new Blob([JSON.stringify({mealLogs:logs,schedule,shopChecks,prepChecks,customMeals,photoMeals},null,2)],{type:"application/json"});
+ const blob=new Blob([JSON.stringify({mealLogs:logs,schedule,activityOverrides,shopChecks,prepChecks,customMeals,photoMeals},null,2)],{type:"application/json"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="liraz-nutrition-backup.json";a.click();URL.revokeObjectURL(a.href);
 }
 $("importFile").onchange=e=>{
  const f=e.target.files[0]; if(!f)return; const reader=new FileReader(); reader.onload=()=>{
-  try{const d=JSON.parse(reader.result); if(d.mealLogs)logs=d.mealLogs;if(d.schedule)schedule=d.schedule;if(d.shopChecks)shopChecks=d.shopChecks;if(d.prepChecks)prepChecks=d.prepChecks;if(d.customMeals)customMeals=d.customMeals;if(d.photoMeals)photoMeals=d.photoMeals;
-  save("mealLogs",logs);save("schedule",schedule);save("shopChecks",shopChecks);save("prepChecks",prepChecks);save("customMeals",customMeals);save("photoMeals",photoMeals);renderAll();alert("Backup imported.");}catch(err){alert("Could not read this backup file.");}
+  try{const d=JSON.parse(reader.result); if(d.mealLogs)logs=d.mealLogs;if(d.schedule)schedule=d.schedule;if(d.activityOverrides)activityOverrides=d.activityOverrides;if(d.shopChecks)shopChecks=d.shopChecks;if(d.prepChecks)prepChecks=d.prepChecks;if(d.customMeals)customMeals=d.customMeals;if(d.photoMeals)photoMeals=d.photoMeals;
+  save("mealLogs",logs);save("schedule",schedule);save("activityOverrides",activityOverrides);save("shopChecks",shopChecks);save("prepChecks",prepChecks);save("customMeals",customMeals);save("photoMeals",photoMeals);renderAll();alert("Backup imported.");}catch(err){alert("Could not read this backup file.");}
  };reader.readAsText(f);
 }
 
@@ -892,6 +977,6 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 </script>
 
-<script src="./estimator.js?v=5" defer></script>
+<script src="./estimator.js?v=7" defer></script>
 </body>
 </html>
