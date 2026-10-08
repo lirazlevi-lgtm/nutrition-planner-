@@ -111,7 +111,7 @@ header{padding-top:env(safe-area-inset-top)}
 <body>
 <header>
   <div class="wrap">
-    <h1>Liraz Nutrition Planner <span class="tag">v7</span></h1>
+    <h1>Liraz Nutrition Planner <span class="tag">v8</span></h1>
     <div class="sub">Body recomposition • strength first • HIIT-friendly fueling</div>
     <nav>
       <button data-tab="today" class="active">Today</button>
@@ -122,6 +122,7 @@ header{padding-top:env(safe-area-inset-top)}
       <button data-tab="tracker">Tracker</button>
       <button data-tab="custom">Custom Meals</button>
       <button data-tab="photos">Photo Meals</button>
+      <button data-tab="report">Weekly Report</button>
       <button data-tab="settings">Settings</button>
     </nav>
   </div>
@@ -155,6 +156,7 @@ header{padding-top:env(safe-area-inset-top)}
       <button class="secondary" onclick="goTab('photos')">📷 Photo Meal</button>
       <button class="secondary" onclick="goTab('menu')">🍽 Today’s Menu</button>
       <button class="secondary" onclick="goTab('shopping')">🛒 Shopping</button>
+      <button class="secondary" onclick="goTab('report')">📊 Weekly Report</button>
     </div>
   </div>
 
@@ -280,6 +282,46 @@ header{padding-top:env(safe-area-inset-top)}
   <div class="card">
     <h3>Saved photo meals</h3>
     <div id="photoMealsList"></div>
+  </div>
+</section>
+
+
+<section id="report">
+  <div class="card">
+    <h2 style="margin-top:0">Weekly progress report <span class="tag">v8</span></h2>
+    <p class="muted">Review your nutrition and activity history, then share a report with ChatGPT for personalized feedback. Reports stay on your iPhone until you choose to share or download them.</p>
+    <div class="row mobile-stack" style="margin-top:12px">
+      <div class="grow" style="min-width:175px"><label for="reportWeekDate">Choose a date in the week</label><input type="date" id="reportWeekDate"></div>
+      <button type="button" class="secondary" onclick="changeReportWeek(-1)">← Previous week</button>
+      <button type="button" class="secondary" onclick="changeReportWeek(1)">Next week →</button>
+    </div>
+    <p id="reportWeekLabel" class="muted" style="margin-bottom:0" aria-live="polite"></p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Optional weekly check-in</h3>
+    <p class="muted">Measurements and notes are optional. For useful comparisons, use the same measuring method each week. Save before sharing.</p>
+    <div class="formgrid">
+      <div><label for="weekWeight">Weight (lb)</label><input type="number" id="weekWeight" step="0.1" min="0" placeholder="optional"></div>
+      <div><label for="weekWaist">Waist (in)</label><input type="number" id="weekWaist" step="0.1" min="0" placeholder="optional"></div>
+      <div><label for="weekHips">Hips (in)</label><input type="number" id="weekHips" step="0.1" min="0" placeholder="optional"></div>
+      <div><label for="weekThigh">Thigh (in)</label><input type="number" id="weekThigh" step="0.1" min="0" placeholder="optional"></div>
+      <div><label for="weekArm">Upper arm (in)</label><input type="number" id="weekArm" step="0.1" min="0" placeholder="optional"></div>
+      <div class="wide"><label for="weekNotes">Sleep, energy, recovery, strength milestones or other notes</label><textarea id="weekNotes" rows="3" placeholder="e.g., slept poorly twice, increased squat weight, feeling stronger"></textarea></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button type="button" class="primary" onclick="saveWeeklyCheckin()">Save check-in</button><small id="reportCheckinStatus" aria-live="polite"></small></div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Your report</h3>
+    <div id="reportSummary" class="grid"></div>
+    <div id="reportCoverage" class="notice" style="margin:12px 0" aria-live="polite"></div>
+    <label for="weeklyReportText">Report preview — includes meal names, logged macros and activities</label>
+    <textarea id="weeklyReportText" rows="15" readonly style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5;white-space:pre-wrap"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button type="button" class="primary" onclick="shareWeeklyReport()">Share report</button>
+      <button type="button" class="secondary" onclick="copyWeeklyReport()">Copy for ChatGPT</button>
+      <button type="button" class="secondary" onclick="downloadWeeklyReport()">Save as text</button>
+    </div>
+    <p id="reportShareStatus" class="muted" aria-live="polite">Sharing opens your iPhone's share sheet if available. You choose where the report goes; nothing is sent automatically.</p>
   </div>
 </section>
 
@@ -514,6 +556,7 @@ function load(k,d){try{return JSON.parse(localStorage.getItem(k)) ?? d}catch(e){
 function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
 let schedule=load("schedule",defaultSchedule);
 let activityOverrides=load("activityOverrides",{});
+let weeklyCheckins=load("weeklyCheckins",{});
 let logs=load("mealLogs",[]);
 let shopChecks=load("shopChecks",{});
 let prepChecks=load("prepChecks",{});
@@ -524,6 +567,7 @@ function goTab(tab){
  document.querySelectorAll("main section").forEach(x=>x.classList.remove("active"));
  const s=$(tab); if(s)s.classList.add("active");
  if(tab==="tracker") renderTracker();
+ if(tab==="report") renderWeeklyReport();
  window.scrollTo({top:0,behavior:"smooth"});
 }
 window.goTab=goTab;
@@ -686,13 +730,13 @@ $("viewDate").onchange=renderTracker;
 window.delLog=id=>{logs=logs.filter(x=>x.id!==id);save("mealLogs",logs);renderTracker()}
 window.clearLogs=()=>{if(confirm("Delete all meal log entries?")){logs=[];save("mealLogs",logs);renderTracker()}}
 window.exportData=()=>{
- const blob=new Blob([JSON.stringify({mealLogs:logs,schedule,activityOverrides,shopChecks,prepChecks,customMeals,photoMeals},null,2)],{type:"application/json"});
+ const blob=new Blob([JSON.stringify({mealLogs:logs,schedule,activityOverrides,shopChecks,prepChecks,customMeals,photoMeals,weeklyCheckins},null,2)],{type:"application/json"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="liraz-nutrition-backup.json";a.click();URL.revokeObjectURL(a.href);
 }
 $("importFile").onchange=e=>{
  const f=e.target.files[0]; if(!f)return; const reader=new FileReader(); reader.onload=()=>{
-  try{const d=JSON.parse(reader.result); if(d.mealLogs)logs=d.mealLogs;if(d.schedule)schedule=d.schedule;if(d.activityOverrides)activityOverrides=d.activityOverrides;if(d.shopChecks)shopChecks=d.shopChecks;if(d.prepChecks)prepChecks=d.prepChecks;if(d.customMeals)customMeals=d.customMeals;if(d.photoMeals)photoMeals=d.photoMeals;
-  save("mealLogs",logs);save("schedule",schedule);save("activityOverrides",activityOverrides);save("shopChecks",shopChecks);save("prepChecks",prepChecks);save("customMeals",customMeals);save("photoMeals",photoMeals);renderAll();alert("Backup imported.");}catch(err){alert("Could not read this backup file.");}
+  try{const d=JSON.parse(reader.result); if(d.mealLogs)logs=d.mealLogs;if(d.schedule)schedule=d.schedule;if(d.activityOverrides)activityOverrides=d.activityOverrides;if(d.shopChecks)shopChecks=d.shopChecks;if(d.prepChecks)prepChecks=d.prepChecks;if(d.customMeals)customMeals=d.customMeals;if(d.photoMeals)photoMeals=d.photoMeals;if(d.weeklyCheckins&&typeof d.weeklyCheckins==="object")weeklyCheckins=d.weeklyCheckins;
+  save("mealLogs",logs);save("schedule",schedule);save("activityOverrides",activityOverrides);save("shopChecks",shopChecks);save("prepChecks",prepChecks);save("customMeals",customMeals);save("photoMeals",photoMeals);save("weeklyCheckins",weeklyCheckins);renderAll();alert("Backup imported.");}catch(err){alert("Could not read this backup file.");}
  };reader.readAsText(f);
 }
 
@@ -967,7 +1011,151 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
 }
 
-function renderAll(){renderToday();renderWeek();renderRecipes();renderShopping();renderPrep();renderSchedule();renderTracker();renderSavedMeals();renderPhotoMeals(); if(!$("ingredientRows").children.length)addIngredientRow();}
+
+// Weekly progress report: local-only until user chooses to share.
+const WEEKLY_CHECKIN_FIELDS=["weekWeight","weekWaist","weekHips","weekThigh","weekArm","weekNotes"];
+function reportMonday(dateStr){
+  const d=new Date(dateStr+"T12:00:00");
+  if(Number.isNaN(d.getTime()))return null;
+  d.setDate(d.getDate()-(d.getDay()+6)%7);
+  return localDateISO(d);
+}
+function reportAddDays(dateStr,delta){
+  const d=new Date(dateStr+"T12:00:00");d.setDate(d.getDate()+delta);return localDateISO(d);
+}
+function reportWeekStart(){
+  const input=$("reportWeekDate");
+  if(!input.value)input.value=localDateISO();
+  return reportMonday(input.value)||reportMonday(localDateISO());
+}
+function reportNum(v){return Number.isFinite(+v)?Math.round(+v*10)/10:0}
+function reportMacroTotals(dayLogs){
+  const keys=["cal","protein","carbs","fat","fiber"];
+  return Object.fromEntries(keys.map(k=>[k,reportNum(dayLogs.reduce((sum,item)=>sum+(Number(item[k])||0),0))]));
+}
+function reportActivity(date){
+  const override=activityOverrides[date];
+  const weekday=dayName(new Date(date+"T12:00:00"));
+  const type=override?.baseType||schedule[weekday]||"Rest / easy";
+  return override?.description?`${type}; ${override.description} (${override.effort||"moderate"} effort, +${override.extra?.cal||0} kcal estimated fueling)` : `${type} (planned; completion not confirmed)`;
+}
+function reportCheckinKey(){return reportWeekStart()}
+function renderReportCheckin(){
+  const saved=weeklyCheckins[reportCheckinKey()]||{};
+  WEEKLY_CHECKIN_FIELDS.forEach(id=>{$(id).value=saved[id]??""});
+  $("reportCheckinStatus").textContent=Object.keys(saved).length?"Saved for this week":"No check-in saved for this week";
+}
+function saveWeeklyCheckin(){
+  const values={};
+  WEEKLY_CHECKIN_FIELDS.forEach(id=>{
+    const val=$(id).value.trim();if(val)values[id]=val;
+  });
+  const key=reportCheckinKey();
+  if(Object.keys(values).length)weeklyCheckins[key]=values;
+  else delete weeklyCheckins[key];
+  save("weeklyCheckins",weeklyCheckins);
+  $("reportCheckinStatus").textContent="Saved on this iPhone";
+  renderWeeklyReport(false);
+}
+window.saveWeeklyCheckin=saveWeeklyCheckin;
+function makeWeeklyReport(start){
+  const end=reportAddDays(start,6),today=localDateISO();
+  const rows=Array.from({length:7},(_,i)=>{
+    const date=reportAddDays(start,i),dayLogs=logs.filter(x=>x.date===date);
+    return {date,day:dayName(new Date(date+"T12:00:00")),dayLogs,totals:reportMacroTotals(dayLogs),target:targetForDate(date),activity:reportActivity(date)};
+  });
+  const recorded=rows.filter(r=>r.dayLogs.length);
+  const keys=["cal","protein","carbs","fat","fiber"];
+  const avg=Object.fromEntries(keys.map(k=>[k,recorded.length?reportNum(recorded.reduce((s,r)=>s+r.totals[k],0)/recorded.length):null]));
+  const avgTarget=Object.fromEntries(keys.map(k=>[k,recorded.length?reportNum(recorded.reduce((s,r)=>s+r.target[k],0)/recorded.length):null]));
+  const check=weeklyCheckins[start]||{};
+  const checkLines=[
+    ["Weight", "weekWeight","lb"],["Waist","weekWaist","in"],["Hips","weekHips","in"],
+    ["Thigh","weekThigh","in"],["Upper arm","weekArm","in"],["Sleep, energy, recovery and progress notes","weekNotes",""]
+  ].filter(x=>check[x[1]]).map(([label,key,unit])=>`- ${label}: ${check[key]}${unit?" "+unit:""}`);
+  const fmt=(v,u="")=>v===null?"n/a":`${v}${u}`;
+  const txt=[
+    `WEEKLY NUTRITION & ACTIVITY REPORT`,
+    `Week: ${start} to ${end}${end>today?" (week in progress)":""}`,
+    `Source: Nutrition Planner v8; user-entered meal estimates and planned/entered activity.`,
+    `Logged days: ${recorded.length} of 7. Days without logs are missing data, NOT zero intake.`,
+    `Meal entries: ${rows.reduce((s,r)=>s+r.dayLogs.length,0)}.`,
+    ``,
+    `AVERAGE DAILY INTAKE ON LOGGED DAYS ONLY (vs adjusted targets for those days)`,
+    ...[["Calories","cal"," kcal"],["Protein","protein"," g"],["Carbs","carbs"," g"],["Fat","fat"," g"],["Fiber","fiber"," g"]].map(([label,k,u])=>`${label}: ${fmt(avg[k],u)} / target ${fmt(avgTarget[k],u)}`),
+    `Caution: Days with only some meals logged may underestimate actual intake.`,
+    ``,
+    `WEEKLY CHECK-IN`,
+    ...(checkLines.length?checkLines:["Not entered."]),
+    ``,
+    `DAILY DETAIL`,
+    ...rows.flatMap(r=>[
+      `${r.day}, ${r.date}: ${r.dayLogs.length?`${r.dayLogs.length} meal(s) logged`:`NO MEALS LOGGED`}`,
+      `  Activity: ${r.activity}`,
+      `  Daily target: ${r.target.cal} kcal, ${r.target.protein} g P, ${r.target.carbs} g C, ${r.target.fat} g fat, ${r.target.fiber} g fiber`,
+      ...(r.dayLogs.length?[`  Logged total: ${r.totals.cal} kcal, ${r.totals.protein} g P, ${r.totals.carbs} g C, ${r.totals.fat} g fat, ${r.totals.fiber} g fiber`]:[]),
+      ...r.dayLogs.map(x=>`  • ${String(x.meal||"Meal").replace(/\s+/g," ")}: ${reportNum(x.cal)} kcal, ${reportNum(x.protein)} g P, ${reportNum(x.carbs)} g C, ${reportNum(x.fat)} g fat, ${reportNum(x.fiber)} g fiber${x.notes?` | Notes: ${String(x.notes).replace(/\s+/g," ")}`:""}`),
+      ``
+    ]),
+    `QUESTIONS FOR CHATGPT`,
+    `Based on my available logs, what patterns stand out for fueling, protein, recovery and body-recomposition goals? Which gaps should I track before making changes? Do not assume unlogged meals or planned workouts actually occurred.`,
+    ``,
+    `Privacy: This report is generated locally and shared only when I choose.`
+  ].join("\n");
+  return {text:txt,rows,avg,avgTarget,recordedDays:recorded.length,mealCount:rows.reduce((s,r)=>s+r.dayLogs.length,0),end};
+}
+function renderWeeklyReport(resetCheckin=true){
+  const start=reportWeekStart(),end=reportAddDays(start,6),today=localDateISO();
+  const result=makeWeeklyReport(start);
+  $("reportWeekLabel").textContent=`Monday ${start} – Sunday ${end}${end>today?" • Week in progress":""}`;
+  $("reportSummary").innerHTML=`<div class="kpi"><small>Days with meal logs</small><br><b>${result.recordedDays} / 7</b></div><div class="kpi"><small>Meals logged</small><br><b>${result.mealCount}</b></div><div class="kpi"><small>Avg calories on logged days</small><br><b>${result.avg.cal??"—"} kcal</b></div><div class="kpi"><small>Avg protein on logged days</small><br><b>${result.avg.protein??"—"} g</b></div>`;
+  const warning=result.recordedDays===0?"No meal logs found this week. The report will include planned activities and any saved check-in only.":result.recordedDays<7?`Only ${result.recordedDays} of 7 days have meal logs. Averages exclude unlogged days; incomplete days may still underestimate your intake.`:"All 7 days have entries. Check that each day includes all meals and snacks before interpreting averages.";
+  $("reportCoverage").textContent=warning+(end>today?" This week is still in progress.":"");
+  $("weeklyReportText").value=result.text;
+  if(resetCheckin)renderReportCheckin();
+  return result;
+}
+window.renderWeeklyReport=renderWeeklyReport;
+function changeReportWeek(direction){
+  $("reportWeekDate").value=reportAddDays(reportWeekStart(),7*direction);
+  renderWeeklyReport();
+}
+window.changeReportWeek=changeReportWeek;
+$("reportWeekDate").addEventListener("change",()=>renderWeeklyReport());
+function currentWeeklyText(){return makeWeeklyReport(reportWeekStart()).text}
+async function copyWeeklyReport(){
+  const content=currentWeeklyText();
+  try{
+    if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(content)}
+    else throw new Error("Clipboard unavailable");
+    $("reportShareStatus").textContent="Copied! Open ChatGPT and paste the report into our conversation.";
+  }catch(e){
+    const field=$("weeklyReportText");field.value=content;field.focus();field.select();
+    try{
+      if(!document.execCommand("copy"))throw new Error("Copy failed");
+      $("reportShareStatus").textContent="Copied! Paste the report into ChatGPT.";
+    }catch(_){$("reportShareStatus").textContent="Select and copy the highlighted report, then paste it into ChatGPT."}
+  }
+}
+window.copyWeeklyReport=copyWeeklyReport;
+async function shareWeeklyReport(){
+  const content=currentWeeklyText();
+  if(navigator.share){
+    try{await navigator.share({title:"My weekly nutrition & activity report",text:content});$("reportShareStatus").textContent="Share sheet closed. If you selected ChatGPT, you can send the report there."}
+    catch(e){if(e.name!=="AbortError")$("reportShareStatus").textContent="Sharing was unavailable. Try Copy for ChatGPT instead."}
+  }else{await copyWeeklyReport()}
+}
+window.shareWeeklyReport=shareWeeklyReport;
+function downloadWeeklyReport(){
+  const start=reportWeekStart(),blob=new Blob([currentWeeklyText()],{type:"text/plain;charset=utf-8"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=`nutrition-week-${start}.txt`;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  $("reportShareStatus").textContent="Text report downloaded. You can attach it to a ChatGPT conversation.";
+}
+window.downloadWeeklyReport=downloadWeeklyReport;
+
+function renderAll(){renderWeeklyReport();renderToday();renderWeek();renderRecipes();renderShopping();renderPrep();renderSchedule();renderTracker();renderSavedMeals();renderPhotoMeals(); if(!$("ingredientRows").children.length)addIngredientRow();}
 renderAll();
 </script>
 
@@ -977,6 +1165,6 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 </script>
 
-<script src="./estimator.js?v=7" defer></script>
+<script src="./estimator.js?v=8" defer></script>
 </body>
 </html>

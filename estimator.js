@@ -417,7 +417,7 @@
       const sheet=document.createElement('div');sheet.id='moreSheet';sheet.hidden=true;
       sheet.innerHTML='<div class="more-sheet-backdrop"></div><div class="more-sheet-content" role="dialog" aria-label="More sections"><h3>More sections</h3><div class="more-sheet-buttons"></div><button type="button" id="closeMore" class="secondary">Close</button></div>';
       document.body.appendChild(sheet);
-      const sections=[['menu','7-Day Menu'],['recipes','Recipes'],['prep','Meal Prep'],['custom','Custom Meals'],['settings','Settings']];
+      const sections=[['menu','7-Day Menu'],['recipes','Recipes'],['prep','Meal Prep'],['custom','Custom Meals'],['report','Weekly Report'],['settings','Settings']];
       const list=sheet.querySelector('.more-sheet-buttons');
       sections.forEach(([tab,name])=>{
         const b=document.createElement('button');b.textContent=name;b.className='secondary';
