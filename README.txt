@@ -28,3 +28,4 @@ periodically for backup. Data does not automatically sync to another phone/compu
 PHOTO MACRO ESTIMATES
 The app stores photos and macro estimates, but does not itself analyze photos. Upload a plate
 photo to ChatGPT for analysis, then enter/save the result in Photo Meals.
+Nutrition Planner v8 deployment retry.
