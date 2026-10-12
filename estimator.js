@@ -23,6 +23,7 @@
     ['Protein powder',['whey protein powder','whey protein','protein powder','whey'],make(394,76,12,6,3),33,{scoop:33,tbsp:8}],
     ['White rice',['cooked white rice','white rice','cooked rice','rice'], 'White rice, cooked',158,{cup:158,bowl:200}],
     ['Brown rice',['brown rice'], 'Brown rice, cooked',158,{cup:195,bowl:200}],
+    ['Bulgur, cooked',['cooked bulgur','bulgur'],make(83,3.1,18.6,0.2,4.5),45,{cup:182}],
     ['Quinoa',['cooked quinoa','quinoa'], 'Quinoa, cooked',185,{cup:185}],
     ['Pasta',['cooked pasta','pasta','spaghetti'], 'Pasta, cooked',140,{cup:140,bowl:200}],
     ['Potato',['roasted potatoes','baked potato','potatoes','potato'], 'Potato, cooked',170,{piece:170,cup:150}],
@@ -41,6 +42,9 @@
     ['Tahini',['tahini'], 'Tahini',15,{tbsp:15,tsp:5}],
     ['Hummus',['hummus'], 'Hummus',30,{tbsp:15,cup:240}],
     ['Peanut butter',['peanut butter'],make(588,25,20,50,6),16,{tbsp:16,tsp:5}],
+    ['Medjool dates',['medjool dates','medjool date'],make(277,1.8,75,0.2,6.7),24,{piece:24}],
+    ['Dates (small)',['small dates','small date'],make(277,1.8,75,0.2,6.7),7,{piece:7}],
+    ['Dates (size unspecified)',['dates','date'],make(277,1.8,75,0.2,6.7),15,{piece:15}],
     ['Almonds',['almonds','almond'],make(579,21.2,21.6,49.9,12.5),28,{piece:1.2,handful:28}],
     ['Walnuts',['walnut halves','walnuts','walnut'],make(654,15.2,13.7,65.2,6.7),28,{piece:2,handful:28}],
     ['Pecans',['pecan halves','pecans','pecan'],make(691,9.2,13.9,72,9.6),28,{piece:1.5,handful:28}],
@@ -79,7 +83,7 @@
     ['egg potato post workout plate',make(600,38,68,19,9)]
   ];
   const normalize = s => String(s).toLowerCase().replace(/[–—-]/g,' ').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
-  const numberWord = {a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6,half:.5,quarter:.25};
+  const numberWord = {a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,half:.5,quarter:.25};
   const fractionMap = {'¼':.25,'½':.5,'¾':.75,'⅓':1/3,'⅔':2/3};
   const parseNum = s => {
     s=String(s).trim().toLowerCase();
@@ -89,7 +93,7 @@
     if(/^\d+\/\d+$/.test(s)){const [a,b]=s.split('/').map(Number);return b?a/b:NaN;}
     return Number(s);
   };
-  const numberPattern='(?:\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:\\.\\d+)?|[¼½¾⅓⅔]|half|quarter|one|two|three|four|five|six|an?|a)';
+  const numberPattern='(?:\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:\\.\\d+)?|[¼½¾⅓⅔]|half|quarter|one|two|three|four|five|six|seven|eight|nine|ten|an?|a)';
   const unitPattern='(?:tablespoons?|tbsp\\.?|teaspoons?|tsp\\.?|ounces?|oz\\.?|grams?|g|kilograms?|kg|cups?|slices?|pieces?|cans?|scoops?|handfuls?|bowls?|eggs?|rice cakes?|avocados?|bananas?|apples?|almonds?|walnut halves?|pecan halves?)';
   const amountUnit = new RegExp('('+numberPattern+')\\s*(?:of\\s+)?('+unitPattern+')(?:\\b|$)','i');
   const numberOnly = new RegExp('(?:^|\\s)('+numberPattern+')(?:\\s+an?)?(?:\\s+of)?(?:\\s|$)','i');
@@ -155,7 +159,8 @@
       .split(/\s*,\s*|\s*;\s*|\s*\+\s*|\s+and\s+|\s+with\s+|\s+on\s+|\s+over\s+|\s+plus\s+|\s+alongside\s+|\s+topped\s+with\s+/i).map(s=>s.trim()).filter(Boolean);
     const parts=[],unknown=[];
     segments.forEach(seg=>{
-      const food=findFood(seg);
+      const saved=window.myFoodsAPI?.bySegment(seg);
+      const food=saved?{name:saved.brand+" "+saved.name,per100:window.myFoodsAPI.per100(saved),defaultGrams:saved.grams,units:{piece:saved.grams,slice:saved.grams,cup:saved.grams}}:findFood(seg);
       if(!food || !food.per100){unknown.push(seg);return;}
       const portion=gramsFor(food,seg);
       parts.push({food,grams:portion.grams,assumed:portion.assumed,source:seg});
@@ -163,6 +168,12 @@
     return {parts,unknown,totals:totalFor(parts)};
   };
   const fmt = n => Math.round(n*10)/10;
+  // Conservative sanity check: fiber can contribute fewer calories than digestible carbohydrate.
+  const calorieWarning = t => {
+    const macroCalories=4*t.protein+4*Math.max(0,t.carbs-t.fiber)+9*t.fat;
+    return Math.abs(t.cal-macroCalories)>Math.max(100,t.cal*.25)
+      ? '<p class="estimate-warning">Calorie/macro mismatch: review food values and portions before logging.</p>' : '';
+  };
   const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let current=null;
   function applyTotals(t){
@@ -181,10 +192,12 @@
     if(!$('logNotes').value.trim())$('logNotes').value='Estimated from description (approx.)';
     const summary=`<strong>Estimated total:</strong> ${Math.round(t.cal)} kcal · ${fmt(t.protein)} g protein · ${fmt(t.carbs)} g carbs · ${fmt(t.fat)} g fat · ${fmt(t.fiber)} g fiber`;
     const rows=current.parts.map((p,i)=>`<div class="estimate-food-row"><div><b>${esc(p.food.name)}</b><small>${esc(p.source)}${p.assumed?' · portion assumed':''}</small></div><label><input aria-label="${esc(p.food.name)} grams" type="number" min="1" max="3000" step="1" value="${p.grams}" data-estimate-grams="${i}"> g</label></div>`).join('');
-    const unknown=current.unknown.length?`<p class="estimate-warning">Not included (please enter separately): ${current.unknown.map(esc).join('; ')}</p>`:'';
+    const unknown=current.unknown.length?`<p class="estimate-warning"><strong>Incomplete estimate — do not log as a full meal until these are added.</strong> Not included: ${current.unknown.map(esc).join('; ')}</p>`:'';
+    const dateSize=current.parts.some(p=>p.food.name==='Dates (size unspecified)')?'<p class="estimate-warning">Date size unspecified: 15 g per date assumed. Small dates and Medjool dates differ substantially; specify the type or adjust grams.</p>':'';
+    const genericWrap=current.parts.some(p=>p.food.name==='Tortilla / wrap')?'<p class="estimate-warning">Generic wrap values used. High-fiber or low-carb wraps vary widely; replace with the package label before logging.</p>':'';
     const assumed=current.parts.some(p=>p.assumed)?`<p class="estimate-warning">Some portions were assumed. Change grams above for a better estimate.</p>`:'';
     const recipeNote=current.recipe?`<p class="muted">Matched a meal in your recipe plan; assumes one standard serving.</p>`:'';
-    area.innerHTML=`<div class="estimate-total">${summary}</div>${recipeNote}${rows}${assumed}${unknown}<p class="muted" style="margin:10px 0 0">Estimate only. Cooking oil, sauces and dressings count only when listed. You can also edit the macro fields above.</p>`;
+    area.innerHTML=`<div class="estimate-total">${summary}</div>${recipeNote}${rows}${assumed}${unknown}${genericWrap}${dateSize}${calorieWarning(t)}<p class="muted" style="margin:10px 0 0">Estimate only. Cooking oil, sauces and dressings count only when listed. You can also edit the macro fields above.</p>`;
     area.querySelectorAll('[data-estimate-grams]').forEach(input=>input.addEventListener('input',()=>{
       const i=Number(input.dataset.estimateGrams),grams=Number(input.value);
       if(!Number.isFinite(grams)||grams<0)return;

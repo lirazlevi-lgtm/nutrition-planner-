@@ -730,12 +730,12 @@ $("viewDate").onchange=renderTracker;
 window.delLog=id=>{logs=logs.filter(x=>x.id!==id);save("mealLogs",logs);renderTracker()}
 window.clearLogs=()=>{if(confirm("Delete all meal log entries?")){logs=[];save("mealLogs",logs);renderTracker()}}
 window.exportData=()=>{
- const blob=new Blob([JSON.stringify({mealLogs:logs,schedule,activityOverrides,shopChecks,prepChecks,customMeals,photoMeals,weeklyCheckins},null,2)],{type:"application/json"});
+ const blob=new Blob([JSON.stringify({mealLogs:logs,schedule,activityOverrides,shopChecks,prepChecks,customMeals,photoMeals,weeklyCheckins,myFoods:window.myFoodsAPI?.all()||[]},null,2)],{type:"application/json"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="liraz-nutrition-backup.json";a.click();URL.revokeObjectURL(a.href);
 }
 $("importFile").onchange=e=>{
  const f=e.target.files[0]; if(!f)return; const reader=new FileReader(); reader.onload=()=>{
-  try{const d=JSON.parse(reader.result); if(d.mealLogs)logs=d.mealLogs;if(d.schedule)schedule=d.schedule;if(d.activityOverrides)activityOverrides=d.activityOverrides;if(d.shopChecks)shopChecks=d.shopChecks;if(d.prepChecks)prepChecks=d.prepChecks;if(d.customMeals)customMeals=d.customMeals;if(d.photoMeals)photoMeals=d.photoMeals;if(d.weeklyCheckins&&typeof d.weeklyCheckins==="object")weeklyCheckins=d.weeklyCheckins;
+  try{const d=JSON.parse(reader.result); if(d.mealLogs)logs=d.mealLogs;if(d.schedule)schedule=d.schedule;if(d.activityOverrides)activityOverrides=d.activityOverrides;if(d.shopChecks)shopChecks=d.shopChecks;if(d.prepChecks)prepChecks=d.prepChecks;if(d.customMeals)customMeals=d.customMeals;if(d.photoMeals)photoMeals=d.photoMeals;if(d.weeklyCheckins&&typeof d.weeklyCheckins==="object")weeklyCheckins=d.weeklyCheckins;if(Array.isArray(d.myFoods)&&window.myFoodsAPI)d.myFoods.forEach(f=>window.myFoodsAPI.saveFood(f));
   save("mealLogs",logs);save("schedule",schedule);save("activityOverrides",activityOverrides);save("shopChecks",shopChecks);save("prepChecks",prepChecks);save("customMeals",customMeals);save("photoMeals",photoMeals);save("weeklyCheckins",weeklyCheckins);renderAll();alert("Backup imported.");}catch(err){alert("Could not read this backup file.");}
  };reader.readAsText(f);
 }
@@ -1165,6 +1165,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 }
 </script>
 
-<script src="./estimator.js?v=8" defer></script>
+<script src="./my-foods.js?v=1" defer></script>
+<script src="./estimator.js?v=9" defer></script>
 </body>
 </html>
