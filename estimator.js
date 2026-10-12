@@ -23,6 +23,7 @@
     ['Protein powder',['whey protein powder','whey protein','protein powder','whey'],make(394,76,12,6,3),33,{scoop:33,tbsp:8}],
     ['White rice',['cooked white rice','white rice','cooked rice','rice'], 'White rice, cooked',158,{cup:158,bowl:200}],
     ['Brown rice',['brown rice'], 'Brown rice, cooked',158,{cup:195,bowl:200}],
+    ['Bulgur, cooked',['cooked bulgur','bulgur'],make(83,3.1,18.6,0.2,4.5),45,{cup:182}],
     ['Quinoa',['cooked quinoa','quinoa'], 'Quinoa, cooked',185,{cup:185}],
     ['Pasta',['cooked pasta','pasta','spaghetti'], 'Pasta, cooked',140,{cup:140,bowl:200}],
     ['Potato',['roasted potatoes','baked potato','potatoes','potato'], 'Potato, cooked',170,{piece:170,cup:150}],
