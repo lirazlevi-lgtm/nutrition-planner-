@@ -3,7 +3,8 @@
 const KEY="myFoodsV1";
 const seed={id:"brownberry-keto-bread",brand:"Brownberry",name:"Keto Bread",aliases:"keto bread, brownberry bread, keto toast",serving:"1 slice",grams:28,cal:40,protein:5,carbs:10,fat:1.5,fiber:9,verified:true};
 const wrap={id:"mission-carb-balance-whole-wheat-71g",brand:"Mission",name:"Carb Balance Whole Wheat Tortilla",aliases:"keto wrap, low carb wrap, mission wrap, tortilla, carb balance",serving:"1 tortilla",grams:71,cal:110,protein:5,carbs:33,fat:3,fiber:30,verified:false};
-const get=()=>{try{const v=JSON.parse(localStorage.getItem(KEY));return Array.isArray(v)?(v.some(x=>x.id===wrap.id)?v:[...v,wrap]):[seed,wrap]}catch{return [seed,wrap]}};
+const sausage={id:"amylu-paleo-andouille-chicken-sausage",brand:"Amylu",name:"Paleo Andouille Chicken Sausage",aliases:"chicken links, chicken sausage, andouille, amylu sausage, paleo sausage",serving:"1 link",grams:71,cal:110,protein:13,carbs:1,fat:6,fiber:0,verified:true};
+const get=()=>{try{const v=JSON.parse(localStorage.getItem(KEY));return Array.isArray(v)?[...v,...[seed,wrap,sausage].filter(d=>!v.some(x=>x.id===d.id))]:[seed,wrap,sausage]}catch{return [seed,wrap,sausage]}};
 let foods=get();
 const save=()=>{localStorage.setItem(KEY,JSON.stringify(foods));window.dispatchEvent(new Event("myfoods-updated"))};
 const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
