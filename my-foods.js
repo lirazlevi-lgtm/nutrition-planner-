@@ -2,7 +2,8 @@
 "use strict";
 const KEY="myFoodsV1";
 const seed={id:"brownberry-keto-bread",brand:"Brownberry",name:"Keto Bread",aliases:"keto bread, brownberry bread, keto toast",serving:"1 slice",grams:28,cal:40,protein:5,carbs:10,fat:1.5,fiber:9,verified:true};
-const get=()=>{try{const v=JSON.parse(localStorage.getItem(KEY));return Array.isArray(v)?v:[seed]}catch{return [seed]}};
+const wrap={id:"mission-carb-balance-whole-wheat-71g",brand:"Mission",name:"Carb Balance Whole Wheat Tortilla",aliases:"keto wrap, low carb wrap, mission wrap, tortilla, carb balance",serving:"1 tortilla",grams:71,cal:110,protein:5,carbs:33,fat:3,fiber:30,verified:false};
+const get=()=>{try{const v=JSON.parse(localStorage.getItem(KEY));return Array.isArray(v)?(v.some(x=>x.id===wrap.id)?v:[...v,wrap]):[seed,wrap]}catch{return [seed,wrap]}};
 let foods=get();
 const save=()=>{localStorage.setItem(KEY,JSON.stringify(foods));window.dispatchEvent(new Event("myfoods-updated"))};
 const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
