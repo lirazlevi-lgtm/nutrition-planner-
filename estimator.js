@@ -158,7 +158,8 @@
       .split(/\s*,\s*|\s*;\s*|\s*\+\s*|\s+and\s+|\s+with\s+|\s+on\s+|\s+over\s+|\s+plus\s+|\s+alongside\s+|\s+topped\s+with\s+/i).map(s=>s.trim()).filter(Boolean);
     const parts=[],unknown=[];
     segments.forEach(seg=>{
-      const food=findFood(seg);
+      const saved=window.myFoodsAPI?.bySegment(seg);
+      const food=saved?{name:saved.brand+" "+saved.name,per100:window.myFoodsAPI.per100(saved),defaultGrams:saved.grams,units:{piece:saved.grams,slice:saved.grams,cup:saved.grams}}:findFood(seg);
       if(!food || !food.per100){unknown.push(seg);return;}
       const portion=gramsFor(food,seg);
       parts.push({food,grams:portion.grams,assumed:portion.assumed,source:seg});
