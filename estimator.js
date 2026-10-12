@@ -41,7 +41,9 @@
     ['Tahini',['tahini'], 'Tahini',15,{tbsp:15,tsp:5}],
     ['Hummus',['hummus'], 'Hummus',30,{tbsp:15,cup:240}],
     ['Peanut butter',['peanut butter'],make(588,25,20,50,6),16,{tbsp:16,tsp:5}],
-    ['Dates',['medjool dates','medjool date','dates','date'],make(277,1.8,75,0.2,6.7),24,{piece:24}],
+    ['Medjool dates',['medjool dates','medjool date'],make(277,1.8,75,0.2,6.7),24,{piece:24}],
+    ['Dates (small)',['small dates','small date'],make(277,1.8,75,0.2,6.7),7,{piece:7}],
+    ['Dates (size unspecified)',['dates','date'],make(277,1.8,75,0.2,6.7),15,{piece:15}],
     ['Almonds',['almonds','almond'],make(579,21.2,21.6,49.9,12.5),28,{piece:1.2,handful:28}],
     ['Walnuts',['walnut halves','walnuts','walnut'],make(654,15.2,13.7,65.2,6.7),28,{piece:2,handful:28}],
     ['Pecans',['pecan halves','pecans','pecan'],make(691,9.2,13.9,72,9.6),28,{piece:1.5,handful:28}],
@@ -189,10 +191,11 @@
     const summary=`<strong>Estimated total:</strong> ${Math.round(t.cal)} kcal · ${fmt(t.protein)} g protein · ${fmt(t.carbs)} g carbs · ${fmt(t.fat)} g fat · ${fmt(t.fiber)} g fiber`;
     const rows=current.parts.map((p,i)=>`<div class="estimate-food-row"><div><b>${esc(p.food.name)}</b><small>${esc(p.source)}${p.assumed?' · portion assumed':''}</small></div><label><input aria-label="${esc(p.food.name)} grams" type="number" min="1" max="3000" step="1" value="${p.grams}" data-estimate-grams="${i}"> g</label></div>`).join('');
     const unknown=current.unknown.length?`<p class="estimate-warning"><strong>Incomplete estimate — do not log as a full meal until these are added.</strong> Not included: ${current.unknown.map(esc).join('; ')}</p>`:'';
+    const dateSize=current.parts.some(p=>p.food.name==='Dates (size unspecified)')?'<p class="estimate-warning">Date size unspecified: 15 g per date assumed. Small dates and Medjool dates differ substantially; specify the type or adjust grams.</p>':'';
     const genericWrap=current.parts.some(p=>p.food.name==='Tortilla / wrap')?'<p class="estimate-warning">Generic wrap values used. High-fiber or low-carb wraps vary widely; replace with the package label before logging.</p>':'';
     const assumed=current.parts.some(p=>p.assumed)?`<p class="estimate-warning">Some portions were assumed. Change grams above for a better estimate.</p>`:'';
     const recipeNote=current.recipe?`<p class="muted">Matched a meal in your recipe plan; assumes one standard serving.</p>`:'';
-    area.innerHTML=`<div class="estimate-total">${summary}</div>${recipeNote}${rows}${assumed}${unknown}${genericWrap}${calorieWarning(t)}<p class="muted" style="margin:10px 0 0">Estimate only. Cooking oil, sauces and dressings count only when listed. You can also edit the macro fields above.</p>`;
+    area.innerHTML=`<div class="estimate-total">${summary}</div>${recipeNote}${rows}${assumed}${unknown}${genericWrap}${dateSize}${calorieWarning(t)}<p class="muted" style="margin:10px 0 0">Estimate only. Cooking oil, sauces and dressings count only when listed. You can also edit the macro fields above.</p>`;
     area.querySelectorAll('[data-estimate-grams]').forEach(input=>input.addEventListener('input',()=>{
       const i=Number(input.dataset.estimateGrams),grams=Number(input.value);
       if(!Number.isFinite(grams)||grams<0)return;
