@@ -8,7 +8,7 @@ const save=()=>{localStorage.setItem(KEY,JSON.stringify(foods));window.dispatchE
 const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
 const matches=q=>{const terms=norm(q).split(" ").filter(Boolean);return foods.filter(f=>terms.every(t=>norm([f.brand,f.name,f.aliases].join(" ")).includes(t))).sort((a,b)=>Number(b.verified)-Number(a.verified)||a.name.localeCompare(b.name))};
-const bySegment=seg=>matches(seg).find(f=>norm(seg).includes(norm(f.brand+" "+f.name))||norm(seg).includes(norm(f.name))||String(f.aliases||"").split(",").some(a=>a.trim().length>3&&norm(seg).includes(norm(a))));
+const bySegment=seg=>foods.slice().sort((a,b)=>Number(b.verified)-Number(a.verified)).find(f=>norm(seg).includes(norm(f.brand+" "+f.name))||norm(seg).includes(norm(f.name))||String(f.aliases||"").split(",").some(a=>a.trim().length>3&&norm(seg).includes(norm(a))));
 window.myFoodsAPI={all:()=>foods.slice(),matches,bySegment,saveFood:f=>{const i=foods.findIndex(x=>x.id===f.id);if(i>=0)foods[i]=f;else foods.push(f);save()},per100:f=>({cal:f.cal*100/f.grams,protein:f.protein*100/f.grams,carbs:f.carbs*100/f.grams,fat:f.fat*100/f.grams,fiber:f.fiber*100/f.grams})};
 function mount(){
 const section=document.createElement("section");section.id="myfoods";
